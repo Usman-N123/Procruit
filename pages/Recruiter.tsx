@@ -456,30 +456,98 @@ export const FindInterviewers: React.FC = () => {
     const [interviewers, setInterviewers] = useState<UserType[]>([]);
     const [selectedInterviewer, setSelectedInterviewer] = useState<UserType | null>(null);
     const [isMessageOpen, setIsMessageOpen] = useState(false);
-    const [messageContent, setMessageContent] = useState('');
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+    // Booking Form State
+    const [bookingData, setBookingData] = useState({
+        jobId: '', candidateId: '', date: '', time: '', notes: ''
+    });
+
+    const [jobs, setJobs] = useState<any[]>([]);
+    const [candidates, setCandidates] = useState<any[]>([]);
+
+    // Filters
+    const [searchTerm, setSearchTerm] = useState('');
+    const [maxRate, setMaxRate] = useState(150);
+
+    const fetchInterviewers = async () => {
+        try {
+            const query = new URLSearchParams();
+            if (searchTerm) query.append('skill', searchTerm);
+            if (maxRate) query.append('maxRate', maxRate.toString());
+            const data = await apiRequest(`/users/interviewers?${query.toString()}`);
+            setInterviewers(data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     useEffect(() => {
-        apiRequest('/users/interviewers').then(setInterviewers).catch(console.error);
+        fetchInterviewers();
+        // Pre-fetch jobs and candidates for the booking modal dropdowns
+        apiRequest('/jobs/my-jobs').then(setJobs).catch(console.error);
+        apiRequest('/users/candidates').then(setCandidates).catch(console.error);
     }, []);
 
     const handleHire = async () => {
-        if (!selectedInterviewer) return;
+        if (!selectedInterviewer || !bookingData.candidateId || !bookingData.date || !bookingData.time) {
+            alert("Please fill in Candidate, Date, and Time.");
+            return;
+        }
         try {
-            await apiRequest('/interviews/message', 'POST', {
-                receiverId: selectedInterviewer._id,
-                content: `Hi ${selectedInterviewer.name}, I would like to hire you for an interview session. \n\n${messageContent}`
+            await apiRequest('/interviews/schedule', 'POST', {
+                candidateId: bookingData.candidateId,
+                jobId: bookingData.jobId || undefined,
+                interviewerId: selectedInterviewer._id,
+                scheduledTime: `${bookingData.date}T${bookingData.time}:00`,
+                notes: bookingData.notes,
+                isDirectBooking: true // Flag to tell backend this is a booking request for an interviewer
             });
-            alert('Request sent successfully!');
+            alert('Booking request sent successfully!');
             setIsMessageOpen(false);
-            setMessageContent('');
+            setBookingData({ jobId: '', candidateId: '', date: '', time: '', notes: '' });
         } catch (error) {
-            alert('Failed to send request');
+            alert('Failed to send booking request');
         }
     };
 
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold">Find Freelance Interviewers</h2>
+
+            <div className="flex flex-col md:flex-row gap-4 bg-neutral-900 p-6 rounded-xl border border-neutral-800 items-end">
+                <div className="flex-1">
+                    <label className="block text-sm font-medium text-neutral-400 mb-1.5">Search by Skill</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-2.5 text-neutral-500 w-5 h-5 pointer-events-none" />
+                        <input
+                            className="w-full bg-black/50 border border-neutral-800 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-[#7B2CBF] outline-none"
+                            placeholder="e.g. React, Node.js"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <div className="w-full md:w-64 pb-2">
+                    <div className="flex justify-between mb-2">
+                        <label className="text-sm font-medium text-neutral-400">Max Hourly Rate</label>
+                        <span className="text-sm font-bold text-[#7B2CBF]">${maxRate}/hr</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="10"
+                        max="300"
+                        step="5"
+                        value={maxRate}
+                        onChange={e => setMaxRate(Number(e.target.value))}
+                        className="w-full accent-[#7B2CBF]"
+                    />
+                </div>
+                <div>
+                    <Button onClick={fetchInterviewers} className="h-[42px] px-8">Search</Button>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {interviewers.map(user => (
                     <Card key={user._id} className="flex flex-col gap-4 group hover:border-[#7B2CBF]/50">
@@ -487,45 +555,151 @@ export const FindInterviewers: React.FC = () => {
                             <img src={user.profilePicture || "/assets/default-avatar.png"} className="w-16 h-16 rounded-xl object-cover" alt="profile" />
                             <div>
                                 <h3 className="font-bold text-white">{user.name}</h3>
-                                <p className="text-xs text-[#7B2CBF]">{user.headline || 'Expert Interviewer'}</p>
+                                <p className="text-xs text-[#7B2CBF]">{(user as any).profile?.headline || 'Expert Interviewer'}</p>
                             </div>
                         </div>
                         <div className="space-y-2 text-sm text-neutral-400">
                             <div className="flex items-center gap-2">
                                 <DollarSign size={14} className="text-green-400" />
-                                <span>{user.hourlyRate || '$50'}/hr</span>
+                                <span>{(user as any).profile?.hourlyRate || '50'}/hr</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Clock size={14} className="text-blue-400" />
-                                <span>{user.yearsOfExperience || '5+'} Years Experience</span>
+                                <span>{(user as any).profile?.yearsOfExperience || '5+'} Years Experience</span>
                             </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                            {user.skills?.slice(0, 3).map(s => (
+                            {(user as any).profile?.skills?.slice(0, 3).map((s: string) => (
                                 <Badge key={s} variant="neutral">{s}</Badge>
                             ))}
                         </div>
-                        <Button className="mt-auto" variant="outline" onClick={() => { setSelectedInterviewer(user); setIsMessageOpen(true); }}>
-                            Contact / Hire
-                        </Button>
+                        <div className="flex gap-2 mt-auto">
+                            <Button className="flex-1" variant="outline" onClick={() => { setSelectedInterviewer(user); setIsDetailsOpen(true); }}>
+                                View Details
+                            </Button>
+                            <Button className="flex-1" onClick={() => { setSelectedInterviewer(user); setIsMessageOpen(true); }}>
+                                Book
+                            </Button>
+                        </div>
                     </Card>
                 ))}
             </div>
 
-            <Modal isOpen={isMessageOpen} onClose={() => setIsMessageOpen(false)} title={`Hire ${selectedInterviewer?.name}`}>
+            <Modal isOpen={isMessageOpen} onClose={() => setIsMessageOpen(false)} title={`Book ${selectedInterviewer?.name}`}>
                 <div className="space-y-4">
-                    <p className="text-neutral-400 text-sm">Send a message to discuss availability and requirements.</p>
-                    <textarea
-                        className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white h-32 focus:border-[#7B2CBF] outline-none"
-                        placeholder="Describe the job role and interview requirements..."
-                        value={messageContent}
-                        onChange={e => setMessageContent(e.target.value)}
-                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-400 mb-1.5">For Job (Optional)</label>
+                            <select className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white outline-none focus:border-[#7B2CBF]" value={bookingData.jobId} onChange={e => setBookingData({ ...bookingData, jobId: e.target.value })}>
+                                <option value="">Select Job</option>
+                                {jobs.map(j => <option key={j._id} value={j._id}>{j.title}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-400 mb-1.5">For Candidate</label>
+                            <select className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white outline-none focus:border-[#7B2CBF]" value={bookingData.candidateId} onChange={e => setBookingData({ ...bookingData, candidateId: e.target.value })}>
+                                <option value="">Select Candidate</option>
+                                {candidates.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label="Proposed Date" type="date" value={bookingData.date} onChange={e => setBookingData({ ...bookingData, date: e.target.value })} />
+                        <Input label="Proposed Time" type="time" value={bookingData.time} onChange={e => setBookingData({ ...bookingData, time: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-400 mb-1.5">Notes / Instructions</label>
+                        <textarea
+                            className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white h-24 focus:border-[#7B2CBF] outline-none"
+                            placeholder="Describe what you want the interviewer to focus on..."
+                            value={bookingData.notes}
+                            onChange={e => setBookingData({ ...bookingData, notes: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="px-4 py-3 bg-neutral-900 rounded-lg border border-neutral-800 flex justify-between items-center text-sm">
+                        <span className="text-neutral-400">Interviewer Rate:</span>
+                        <span className="text-white font-bold text-lg">${(selectedInterviewer as any)?.profile?.hourlyRate || '50'} <span className="text-xs text-neutral-500 font-normal">/hr</span></span>
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="ghost" onClick={() => setIsMessageOpen(false)}>Cancel</Button>
                         <Button onClick={handleHire}>Send Request</Button>
                     </div>
                 </div>
+            </Modal>
+
+            <Modal isOpen={isDetailsOpen} onClose={() => setIsDetailsOpen(false)} title="Freelancer Profile">
+                {selectedInterviewer && (
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4 border-b border-neutral-800 pb-4">
+                            <img src={selectedInterviewer.profilePicture || "/assets/default-avatar.png"} className="w-20 h-20 rounded-xl object-cover" alt="profile" />
+                            <div>
+                                <h3 className="text-xl font-bold text-white">{selectedInterviewer.name}</h3>
+                                <p className="text-[#7B2CBF]">{(selectedInterviewer as any).profile?.headline || 'Professional Interviewer'}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl">
+                                <p className="text-xs text-neutral-400 mb-1">Hourly Rate</p>
+                                <p className="text-lg font-bold text-white flex items-center gap-1">
+                                    <DollarSign size={16} className="text-green-500" />
+                                    {(selectedInterviewer as any).profile?.hourlyRate || '50'}/hr
+                                </p>
+                            </div>
+                            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl">
+                                <p className="text-xs text-neutral-400 mb-1">Experience</p>
+                                <p className="text-lg font-bold text-white flex items-center gap-1">
+                                    <Clock size={16} className="text-blue-500" />
+                                    {(selectedInterviewer as any).profile?.yearsOfExperience || '5+'} Years
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-sm font-semibold text-neutral-300 mb-2">About</h4>
+                            <p className="text-sm text-neutral-400 leading-relaxed bg-black/30 p-4 rounded-lg border border-neutral-800/50">
+                                {(selectedInterviewer as any).profile?.bio || "This freelancer hasn't added a biography yet, but they have been vetted by our team to conduct high-quality technical interviews."}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 className="text-sm font-semibold text-neutral-300 mb-2">Skills & Technologies</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {(selectedInterviewer as any).profile?.skills && (selectedInterviewer as any).profile.skills.length > 0 ? (
+                                    (selectedInterviewer as any).profile.skills.map((skill: string, idx: number) => (
+                                        <Badge key={idx} variant="info">{skill}</Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-sm text-neutral-500">No skills listed</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-sm font-semibold text-neutral-300 mb-2">Availability</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {(selectedInterviewer as any).profile?.availability && (selectedInterviewer as any).profile.availability.length > 0 ? (
+                                    (selectedInterviewer as any).profile.availability.map((av: string, idx: number) => (
+                                        <Badge key={idx} variant="neutral">{av}</Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-sm text-neutral-500">Flexible</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4 border-t border-neutral-800">
+                            <Button onClick={() => {
+                                setIsDetailsOpen(false);
+                                setIsMessageOpen(true);
+                            }}>
+                                Hire {selectedInterviewer.name.split(' ')[0]}
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

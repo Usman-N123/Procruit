@@ -24,9 +24,10 @@ const profileSchema = new mongoose.Schema({
     resume: { type: String }, // URL or base64
 
     // Interviewer Specific
-    hourlyRate: { type: String },
+    hourlyRate: { type: Number },
     yearsOfExperience: { type: String },
-    availability: { type: String } // e.g. "Weekdays", "20hrs/week"
+    availability: [String], // e.g. ["Monday 10am-12pm", "Wednesday 2pm-4pm"]
+    rating: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Profile', profileSchema);

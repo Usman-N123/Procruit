@@ -7,7 +7,7 @@ import { AdminOverview, AdminUsers, AdminJobs, AdminApprovals } from './pages/Ad
 import { OrgAdminDashboard, OrgSettings } from './pages/OrgAdmin';
 import { RecruiterDashboard, CreateJob, Applicants, RecruiterProfile, FindInterviewers, RecruiterInterviews } from './pages/Recruiter';
 import { CandidateDashboard, CandidateJobs, CandidateProfile, CandidateInterviews } from './pages/Candidate';
-import { InterviewerDashboard, InterviewerProfile } from './pages/Interviewer';
+import { InterviewerDashboard, InterviewerProfile, InterviewerInterviews, InterviewerRequests } from './pages/Interviewer';
 import InterviewRoom from './pages/InterviewRoom';
 
 const App: React.FC = () => {
@@ -63,8 +63,8 @@ const App: React.FC = () => {
         {/* Interviewer Routes */}
         <Route path="/interviewer" element={<DashboardLayout role="INTERVIEWER" />}>
           <Route index element={<InterviewerDashboard />} />
-          <Route path="schedule" element={<div className="text-center p-10 text-neutral-500">My Schedule (Coming Soon)</div>} />
-          <Route path="requests" element={<div className="text-center p-10 text-neutral-500">Requests (Coming Soon)</div>} />
+          <Route path="schedule" element={<InterviewerInterviews />} />
+          <Route path="requests" element={<InterviewerRequests />} />
           <Route path="profile" element={<InterviewerProfile />} />
           <Route path="*" element={<Navigate to="/interviewer" replace />} />
         </Route>

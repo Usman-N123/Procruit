@@ -77,16 +77,16 @@ router.put('/profile', verifyToken, async (req, res) => {
         // 2. Update Profile Fields (if user has a profile)
         if (user.profile) {
             const profileUpdate = {};
-            if (headline) profileUpdate.headline = headline;
-            if (bio) profileUpdate.bio = bio;
-            if (skills) profileUpdate.skills = skills;
-            if (experience) profileUpdate.experience = experience;
-            if (education) profileUpdate.education = education;
-            if (resume) profileUpdate.resume = resume;
+            if (headline !== undefined) profileUpdate.headline = headline;
+            if (bio !== undefined) profileUpdate.bio = bio;
+            if (skills !== undefined) profileUpdate.skills = skills;
+            if (experience !== undefined) profileUpdate.experience = experience;
+            if (education !== undefined) profileUpdate.education = education;
+            if (resume !== undefined) profileUpdate.resume = resume;
 
-            if (hourlyRate) profileUpdate.hourlyRate = hourlyRate;
-            if (yearsOfExperience) profileUpdate.yearsOfExperience = yearsOfExperience;
-            if (availability) profileUpdate.availability = availability;
+            if (hourlyRate !== undefined) profileUpdate.hourlyRate = hourlyRate;
+            if (yearsOfExperience !== undefined) profileUpdate.yearsOfExperience = yearsOfExperience;
+            if (availability !== undefined) profileUpdate.availability = availability;
 
             const Profile = require('../models/Profile'); // Lazy load to avoid circular dependency issues if any
             const updatedProfile = await Profile.findByIdAndUpdate(
@@ -142,14 +142,43 @@ router.post('/profile-picture', verifyToken, upload.single('profilePicture'), as
 });
 
 // @route   GET /api/users/interviewers
-// @desc    Get list of freelance interviewers
+// @desc    Get list of freelance interviewers (Approved Only) with optional filters
 router.get('/interviewers', verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'RECRUITER') return res.status(403).json({ message: 'Unauthorized' });
+        if (req.user.role !== 'RECRUITER' && req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Unauthorized' });
 
-        const interviewers = await User.find({ role: 'INTERVIEWER' }).select('-password -email');
+        const { skill, maxRate } = req.query;
+
+        // 1. Find Approved (or Pending for now) Interviewers
+        let query = { role: 'INTERVIEWER' }; // Removed approvalStatus: 'APPROVED' to allow viewing
+        let interviewers = await User.find(query).select('-password -email').populate('profile');
+
+        // 2. Apply Filters (Skill & MaxRate)
+        if (skill || maxRate) {
+            interviewers = interviewers.filter(user => {
+                let match = true;
+                if (!user.profile) return false; // If no profile, they can't match these filters
+
+                if (skill) {
+                    // Check if skills array includes the requested skill (case-insensitive)
+                    const hasSkill = user.profile.skills && user.profile.skills.some(s => s.toLowerCase().includes(skill.toLowerCase()));
+                    if (!hasSkill) match = false;
+                }
+
+                if (maxRate && match) {
+                    // Check if hourlyRate is less than or equal to maxRate
+                    if (!user.profile.hourlyRate || user.profile.hourlyRate > Number(maxRate)) {
+                        match = false;
+                    }
+                }
+
+                return match;
+            });
+        }
+
         res.json(interviewers);
     } catch (error) {
+        console.error("Error fetching interviewers:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 });
