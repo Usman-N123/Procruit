@@ -77,10 +77,12 @@ export interface Interview {
   _id: string;
   candidateId: string | User;
   recruiterId: string | User;
+  interviewerId?: string | User;
   jobId?: string | Job;
   scheduledTime: string;
   meetingId: string;
-  status: 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
+  paymentStatus?: 'Unpaid' | 'Paid';
   notes?: string;
   // Legacy compat
   date?: string;

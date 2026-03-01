@@ -12,7 +12,8 @@ interface InterviewData {
     _id: string;
     meetingId: string;
     scheduledTime: string;
-    status: 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
+    status: 'Pending' | 'Accepted' | 'Rejected' | 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
+    paymentStatus?: 'Unpaid' | 'Paid';
     notes?: string;
     candidateId: { _id: string; name: string; email: string; profilePicture?: string };
     recruiterId: { _id: string; name: string; email: string; profilePicture?: string };
@@ -65,12 +66,24 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({ role }) => {
     // Fetch interviews
     useEffect(() => {
         fetchInterviews();
+
+        // Check for Stripe redirect query params
+        const query = new URLSearchParams(window.location.search);
+        if (query.get('payment') === 'success') {
+            addToast('success', 'Payment successful! Interview confirmed.');
+            // Clean up the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (query.get('payment') === 'cancelled') {
+            addToast('warning', 'Payment was cancelled.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }, []);
 
     const fetchInterviews = async () => {
         try {
             setLoading(true);
             const data = await apiRequest('/interviews/my-interviews');
+            console.log('InterviewsTab fetched:', data);
             setInterviews(data);
         } catch (err: any) {
             addToast('error', err.message || 'Failed to load interviews');
@@ -155,6 +168,17 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({ role }) => {
         return interview.status === 'Scheduled' || interview.status === 'InProgress';
     };
 
+    const handlePayment = async (interviewId: string) => {
+        try {
+            const res = await apiRequest('/payments/create-checkout-session', 'POST', { interviewId });
+            if (res.url) {
+                window.location.href = res.url; // Redirect to Stripe Checkout
+            }
+        } catch (error: any) {
+            addToast('error', error.message || 'Payment initiation failed');
+        }
+    };
+
     // Split interviews into upcoming vs past
     const now = new Date();
     const upcomingInterviews = interviews.filter(
@@ -235,6 +259,11 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({ role }) => {
                                                 <Badge variant={statusBadgeVariant[interview.status] || 'neutral'}>
                                                     {interview.status}
                                                 </Badge>
+                                                {role === 'RECRUITER' && interview.paymentStatus && (
+                                                    <Badge variant={interview.paymentStatus === 'Paid' ? 'success' : 'warning'}>
+                                                        {interview.paymentStatus}
+                                                    </Badge>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-4 text-sm text-neutral-400">
                                                 <span className="flex items-center gap-1">
@@ -255,16 +284,28 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({ role }) => {
                                         </div>
                                     </div>
 
-                                    {isJoinable(interview) && (
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            icon={Video}
-                                            onClick={() => joinInterview(interview.meetingId)}
-                                        >
-                                            Join Room
-                                        </Button>
-                                    )}
+                                    <div className="flex gap-2 items-center">
+                                        {role === 'RECRUITER' && interview.paymentStatus === 'Unpaid' && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-green-500 text-green-500 hover:bg-green-500/10"
+                                                onClick={() => handlePayment(interview._id)}
+                                            >
+                                                Pay & Confirm
+                                            </Button>
+                                        )}
+                                        {isJoinable(interview) && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                icon={Video}
+                                                onClick={() => joinInterview(interview.meetingId)}
+                                            >
+                                                Join Room
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </Card>
                         ))}
