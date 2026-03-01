@@ -28,6 +28,16 @@ exports.getJobs = async (req, res) => {
 
         // Note: Salary filtering is tricky with string. Skipping complex range for now.
 
+        // Exclude jobs the user has already applied for (if logged in)
+        if (req.user && req.user.id) {
+            const appliedJobs = await Application.find({ candidate: req.user.id }).select('job');
+            const appliedJobIds = appliedJobs.map(app => app.job);
+
+            if (appliedJobIds.length > 0) {
+                query._id = { $nin: appliedJobIds };
+            }
+        }
+
         const jobs = await Job.find(query).sort({ createdAt: -1 });
         res.json(jobs);
     } catch (err) {
@@ -111,14 +121,14 @@ exports.applyJob = async (req, res) => {
         const job = await Job.findById(req.params.id);
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
-        // Check if already applied
+        // Prevent Duplicate Job Applications
         const existingApplication = await Application.findOne({
             job: job._id,
             candidate: req.user.id
         });
 
         if (existingApplication) {
-            return res.status(400).json({ message: 'Already applied to this job' });
+            return res.status(400).json({ message: 'You have already applied for this position.' });
         }
 
         // Get user resume from profile (optional snapshot)
@@ -129,12 +139,8 @@ exports.applyJob = async (req, res) => {
         let profileData = {};
 
         if (user.profile) {
-            // If profile is populated (it might be just an ID if not fully populated by User find, but here we used populate)
-            // Ideally we need to fetch Profile document if population fails or is partial, but let's assume valid.
-            // Actually, wait, user.profile in User model is ref. 
-            // We need to ensuring we have the profile document.
+            // If profile is populated
             if (user.profile._id) {
-                // It's likely an object now due to populate
                 profileData = user.profile;
             } else {
                 // Fallback if populate didn't work as expected or if it's just an ID

@@ -437,13 +437,19 @@ export const Applicants: React.FC = () => {
             <Modal isOpen={isScheduleOpen} onClose={() => setIsScheduleOpen(false)} title="Schedule Interview">
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Date" type="date" value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} />
+                        <Input label="Date" type="date" min={new Date().toISOString().split('T')[0]} value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} />
                         <Input label="Time" type="time" value={scheduleData.time} onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })} />
                     </div>
                     <Input label="Meeting Link" placeholder="https://zoom.us/j/..." value={scheduleData.link} onChange={e => setScheduleData({ ...scheduleData, link: e.target.value })} />
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="ghost" onClick={() => setIsScheduleOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSchedule}>Confirm Schedule</Button>
+                        <Button onClick={() => {
+                            if (new Date(`${scheduleData.date}T${scheduleData.time}`) < new Date()) {
+                                alert("Interview date and time must be in the future.");
+                                return;
+                            }
+                            handleSchedule();
+                        }}>Confirm Schedule</Button>
                     </div>
                 </div>
             </Modal>

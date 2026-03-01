@@ -25,6 +25,10 @@ router.post('/schedule', protect, authorize('RECRUITER'), async (req, res) => {
             notes: notes || '',
         };
 
+        if (interviewData.scheduledTime < new Date()) {
+            return res.status(400).json({ message: "Interview date and time must be in the future." });
+        }
+
         // If it's an interviewer booking request, status is Pending and meetingId is generated later
         // For standard candidate interviews scheduling, meetingId is generated
         if (isDirectBooking) {

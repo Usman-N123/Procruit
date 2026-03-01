@@ -149,8 +149,12 @@ export const CandidateJobs: React.FC = () => {
         try {
             await apiRequest(`/jobs/${id}/apply`, 'POST');
             alert('Applied successfully!');
-        } catch (error) {
-            alert('Failed to apply or already applied.');
+
+            // Remove the applied job from the feed state immediately
+            setJobs(prevJobs => prevJobs.filter(job => job._id !== id));
+
+        } catch (error: any) {
+            alert(error?.message || 'Failed to apply or already applied.');
         }
     };
 

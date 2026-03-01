@@ -159,6 +159,11 @@ io.on('connection', (socket) => {
     });
   });
 
+  // --- Kick User ---
+  socket.on('kick-user', ({ roomId, targetSocketId }) => {
+    io.to(targetSocketId).emit('kicked-from-room');
+  });
+
   // --- Disconnect ---
   socket.on('disconnect', () => {
     console.log(`[Socket.IO] User disconnected: ${socket.userName} (${socket.userId})`);

@@ -222,6 +222,23 @@ const InterviewRoom: React.FC = () => {
                     peerConnectionRef.current = null;
                 }
             });
+            // Kicked from room
+            socket.on('kicked-from-room', () => {
+                if (!isMounted) return;
+
+                if (peerConnectionRef.current) {
+                    peerConnectionRef.current.close();
+                    peerConnectionRef.current = null;
+                }
+
+                addToast('error', 'The recruiter has ended the session.');
+
+                setTimeout(() => {
+                    const dashboardPath = user?.role === 'RECRUITER' ? '/recruiter/schedule' : '/candidate/interviews';
+                    navigate(dashboardPath);
+                    window.location.reload(); // To fully clear states just in case
+                }, 1500);
+            });
         };
 
         initRoom();
@@ -394,6 +411,16 @@ const InterviewRoom: React.FC = () => {
         navigate(dashboardPath);
     };
 
+    const kickCandidate = () => {
+        if (socketRef.current && remoteUser && interview) {
+            socketRef.current.emit('kick-user', {
+                roomId: interview.meetingId,
+                targetSocketId: remoteUser.socketId
+            });
+            endCall();
+        }
+    };
+
     // ===========================
     // Code Editor Change
     // ===========================
@@ -549,8 +576,8 @@ const InterviewRoom: React.FC = () => {
 
                 {/* Right Side: Video Feeds */}
                 <div className="flex-1 min-w-[300px] max-w-[480px] flex flex-col bg-neutral-950 border-l border-neutral-800">
-                    {/* Remote Video (Large) */}
-                    <div className="flex-1 relative bg-neutral-900">
+                    {/* Remote Video (50%) */}
+                    <div className="flex-1 relative bg-neutral-900 border-b border-neutral-800" style={{ height: '50%' }}>
                         <video
                             ref={remoteVideoRef}
                             autoPlay
@@ -574,8 +601,8 @@ const InterviewRoom: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Local Video (Small, Picture-in-Picture style) */}
-                    <div className="h-[180px] relative border-t border-neutral-800 bg-neutral-900">
+                    {/* Local Video (50%) */}
+                    <div className="flex-1 relative bg-neutral-900" style={{ height: '50%' }}>
                         <video
                             ref={localVideoRef}
                             autoPlay
@@ -603,8 +630,8 @@ const InterviewRoom: React.FC = () => {
                 <button
                     onClick={toggleMute}
                     className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${isMuted
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
-                            : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                        : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
                         }`}
                     title={isMuted ? 'Unmute' : 'Mute'}
                 >
@@ -615,8 +642,8 @@ const InterviewRoom: React.FC = () => {
                 <button
                     onClick={toggleVideo}
                     className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${isVideoOff
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
-                            : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                        : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
                         }`}
                     title={isVideoOff ? 'Turn on Video' : 'Turn off Video'}
                 >
@@ -627,8 +654,8 @@ const InterviewRoom: React.FC = () => {
                 <button
                     onClick={toggleScreenShare}
                     className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${isScreenSharing
-                            ? 'bg-[#7B2CBF]/20 text-[#7B2CBF] border border-[#7B2CBF]/30 hover:bg-[#7B2CBF]/30'
-                            : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
+                        ? 'bg-[#7B2CBF]/20 text-[#7B2CBF] border border-[#7B2CBF]/30 hover:bg-[#7B2CBF]/30'
+                        : 'bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700'
                         }`}
                     title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
                 >
@@ -637,6 +664,17 @@ const InterviewRoom: React.FC = () => {
 
                 {/* Divider */}
                 <div className="w-px h-8 bg-neutral-700 mx-1" />
+
+                {/* Kick Candidate (Conditional) */}
+                {(user?.role === 'RECRUITER' || user?.role === 'ORG_ADMIN') && (
+                    <button
+                        onClick={kickCandidate}
+                        className="px-4 h-12 rounded bg-orange-600/20 text-orange-500 border border-orange-600/30 hover:bg-orange-600/30 flex items-center justify-center transition-all duration-200 text-sm font-semibold mx-2"
+                        title="Kick Candidate"
+                    >
+                        Kick Candidate
+                    </button>
+                )}
 
                 {/* End Call */}
                 <button
