@@ -57,8 +57,18 @@ exports.getMyJobs = async (req, res) => {
     try {
         const jobs = await Job.find({ postedBy: req.user.id })
             .populate('applicants', 'name email profilePicture headline skills experience resume')
-            .sort({ createdAt: -1 });
-        res.json(jobs);
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const jobsWithCounts = await Promise.all(jobs.map(async (job) => {
+            const count = await Application.countDocuments({ job: job._id });
+            return {
+                ...job,
+                applicantCount: count
+            };
+        }));
+
+        res.json(jobsWithCounts);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

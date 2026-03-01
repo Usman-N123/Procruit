@@ -5,7 +5,7 @@ import { AdminLayout } from './components/AdminLayout';
 import { HomePage, AuthPage } from './pages/Public';
 import { AdminOverview, AdminUsers, AdminJobs, AdminApprovals } from './pages/Admin';
 import { OrgAdminDashboard, OrgSettings } from './pages/OrgAdmin';
-import { RecruiterDashboard, CreateJob, Applicants, RecruiterProfile, FindInterviewers, RecruiterInterviews } from './pages/Recruiter';
+import { RecruiterDashboard, CreateJob, MyJobs, Applicants, RecruiterProfile, FindInterviewers, RecruiterInterviews } from './pages/Recruiter';
 import { CandidateDashboard, CandidateJobs, CandidateProfile, CandidateInterviews } from './pages/Candidate';
 import { InterviewerDashboard, InterviewerProfile, InterviewerInterviews, InterviewerRequests } from './pages/Interviewer';
 import InterviewRoom from './pages/InterviewRoom';
@@ -42,7 +42,7 @@ const App: React.FC = () => {
         {/* Recruiter Routes */}
         <Route path="/recruiter" element={<DashboardLayout role="RECRUITER" />}>
           <Route index element={<RecruiterDashboard />} />
-          <Route path="jobs" element={<CreateJob />} />
+          <Route path="jobs" element={<MyJobs />} />
           <Route path="applicants" element={<Applicants />} />
           <Route path="hire-interviewer" element={<FindInterviewers />} />
           <Route path="schedule" element={<RecruiterInterviews />} />

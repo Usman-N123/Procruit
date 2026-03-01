@@ -62,6 +62,7 @@ export interface Job {
   applicants: string[] | User[]; // Array of User IDs
   createdAt: string;
   status: 'Active' | 'Closed';
+  applicantCount?: number;
 }
 
 export interface Application {
