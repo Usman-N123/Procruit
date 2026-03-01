@@ -109,24 +109,39 @@ export const RecruiterDashboard: React.FC = () => {
 export const MyJobs: React.FC = () => {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isCreatingJob, setIsCreatingJob] = useState(false);
 
     useEffect(() => {
-        apiRequest('/jobs/my-jobs').then(setJobs).catch(console.error).finally(() => setLoading(false));
-    }, []);
+        if (!isCreatingJob) {
+            setLoading(true);
+            apiRequest('/jobs/my-jobs').then(setJobs).catch(console.error).finally(() => setLoading(false));
+        }
+    }, [isCreatingJob]);
 
     if (loading) return <div>Loading jobs...</div>;
+
+    if (isCreatingJob) {
+        return (
+            <div className="space-y-4">
+                <Button variant="ghost" onClick={() => setIsCreatingJob(false)} className="mb-4 text-neutral-400 hover:text-white">
+                    ← Back to Jobs List
+                </Button>
+                <CreateJob onJobCreated={() => setIsCreatingJob(false)} onCancel={() => setIsCreatingJob(false)} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">My Job Postings</h2>
-                <Button icon={Plus} onClick={() => window.location.href = '#/recruiter/jobs'}>Post New Job</Button>
+                <Button icon={Plus} onClick={() => setIsCreatingJob(true)}>Post New Job</Button>
             </div>
 
             {jobs.length === 0 ? (
                 <div className="text-center py-12 bg-neutral-900 rounded-xl border border-neutral-800">
                     <p className="text-neutral-400 mb-4">You haven't posted any jobs yet.</p>
-                    <Button onClick={() => window.location.href = '#/recruiter/jobs'}>Create First Job</Button>
+                    <Button onClick={() => setIsCreatingJob(true)}>Create First Job</Button>
                 </div>
             ) : (
                 <div className="grid gap-4">
@@ -134,10 +149,12 @@ export const MyJobs: React.FC = () => {
                         <Card key={job._id} className="flex justify-between items-center p-6 group hover:border-[#7B2CBF]">
                             <div>
                                 <h3 className="text-xl font-bold mb-1">{job.title}</h3>
-                                <div className="flex gap-4 text-sm text-neutral-400">
-                                    <span className="flex items-center gap-1"><MapPin size={14} /> {job.location}</span>
+                                <div className="flex gap-4 text-sm text-neutral-400 items-center">
+                                    <span className="flex items-center gap-1"><MapPin size={14} /> {job.location} | {job.type}</span>
                                     <span className="flex items-center gap-1"><Clock size={14} /> Posted {new Date(job.createdAt).toLocaleDateString()}</span>
-                                    <span className="flex items-center gap-1"><User size={14} /> {job.applicants?.length || 0} Applicants</span>
+                                    <Badge className="bg-[#7B2CBF]/20 text-[#7B2CBF] border-[#7B2CBF]/50 px-3 py-1 text-sm rounded-full font-bold ml-2">
+                                        {job.applicantCount || 0} Applicants
+                                    </Badge>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -154,7 +171,7 @@ export const MyJobs: React.FC = () => {
     );
 };
 
-export const CreateJob: React.FC = () => {
+export const CreateJob: React.FC<{ onJobCreated?: () => void, onCancel?: () => void }> = ({ onJobCreated, onCancel }) => {
     const [formData, setFormData] = useState({
         title: '',
         location: '',
@@ -187,6 +204,7 @@ export const CreateJob: React.FC = () => {
             await apiRequest('/jobs', 'POST', formData);
             alert('Job posted successfully!');
             setFormData({ title: '', location: '', type: 'Full-time', description: '', requirements: '', salary: '', company: formData.company });
+            if (onJobCreated) onJobCreated();
         } catch (err) {
             alert('Failed to post job');
         } finally {
@@ -259,7 +277,7 @@ export const CreateJob: React.FC = () => {
                     />
                 </div>
                 <div className="flex justify-end gap-4 pt-4">
-                    <Button variant="ghost">Cancel</Button>
+                    <Button variant="ghost" onClick={() => onCancel && onCancel()}>Cancel</Button>
                     <Button onClick={handleSubmit} disabled={loading}>{loading ? 'Posting...' : 'Publish Job'}</Button>
                 </div>
             </Card>
