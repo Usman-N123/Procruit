@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const Interview = require('../models/Interview');
 const Message = require('../models/Message');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { getEligibleCandidates } = require('../controllers/interviewController');
 
 // ============================
 // Interview Routes
@@ -89,6 +90,10 @@ router.get('/my-interviews', protect, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch interviews' });
     }
 });
+
+// Get Eligible Candidates for scheduling (Recruiter only)
+// IMPORTANT: This must be defined BEFORE the /:id wildcard route below.
+router.get('/eligible-candidates', protect, authorize('RECRUITER'), getEligibleCandidates);
 
 // Get Single Interview (Room validation — checks user is a participant)
 router.get('/:id', protect, async (req, res) => {
@@ -212,5 +217,6 @@ router.get('/my-messages', protect, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch messages' });
     }
 });
+
 
 module.exports = router;

@@ -93,24 +93,26 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({ role }) => {
     };
 
     // Fetch candidates and jobs for scheduling (Recruiter)
+    // IMPORTANT: Decoupled fetches — each has its own try/catch so one failure doesn't break the other.
     const openScheduleModal = async () => {
         setShowScheduleModal(true);
+
+        // Fetch recruiter's jobs independently
         try {
-            const [candidatesData, jobsData] = await Promise.all([
-                apiRequest('/users/candidates'),
-                apiRequest('/jobs/my-jobs'),
-            ]);
-            setCandidates(candidatesData || []);
+            const jobsData = await apiRequest('/jobs/my-jobs');
             setJobs(jobsData || []);
-        } catch {
-            // Fallback: fetch from users endpoint
-            try {
-                const usersData = await apiRequest('/admin/users');
-                const filteredCandidates = (usersData || []).filter((u: any) => u.role === 'CANDIDATE');
-                setCandidates(filteredCandidates);
-            } catch {
-                addToast('error', 'Failed to load candidates list');
-            }
+        } catch (err: any) {
+            console.error('Failed to load jobs:', err);
+            addToast('error', 'Failed to load your jobs');
+        }
+
+        // Fetch eligible candidates (only those who applied to this recruiter's jobs) independently
+        try {
+            const candidatesData = await apiRequest('/interviews/eligible-candidates');
+            setCandidates(candidatesData || []);
+        } catch (err: any) {
+            console.error('Failed to load eligible candidates:', err);
+            addToast('error', 'Failed to load eligible candidates');
         }
     };
 
