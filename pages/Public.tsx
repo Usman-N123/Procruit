@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/UI';
-import { CheckCircle, Zap, Shield, Users, ArrowRight, UserPlus, FileSearch, MessageSquare, HelpCircle, ChevronDown } from 'lucide-react';
+import { CheckCircle, Zap, Shield, Users, ArrowRight, UserPlus, FileSearch, MessageSquare, HelpCircle, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { UserRole } from '../types';
 import { apiRequest } from '../utils/api';
 
@@ -289,12 +289,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type }) => {
   const navigate = useNavigate();
   const [role, setRole] = useState<UserRole>('CANDIDATE');
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (type === 'signup' && formData.password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -393,23 +402,42 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type }) => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             )}
+            {type === 'signup' && (
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="name@example.com"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            )}
 
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="name@example.com"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            />
+            {type === 'signup' && (
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                endIcon={showPassword ? EyeOff : Eye}
+                onEndIconClick={() => setShowPassword(!showPassword)}
+              />
+            )}
+
+            {type === 'signup' && (
+              <Input
+                label="Confirm Password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                endIcon={showConfirmPassword ? EyeOff : Eye}
+                onEndIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              />
+            )}
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
