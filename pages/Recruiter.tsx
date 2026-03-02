@@ -25,8 +25,14 @@ export const RecruiterDashboard: React.FC = () => {
         const fetchData = async () => {
             try {
                 const jobs = await apiRequest('/jobs/my-jobs');
-                const interviews = await apiRequest('/interviews/my-interviews');
+                const allInterviews = await apiRequest('/interviews/my-interviews');
                 const applications = await apiRequest('/jobs/applications/received');
+
+                // Compute Upcoming Interviews only
+                const now = new Date().getTime();
+                const upcomingInterviews = allInterviews.filter((interview: any) => {
+                    return new Date(interview.scheduledTime).getTime() > now;
+                });
 
                 const pipelineCounts = { Applied: 0, Screening: 0, Interview: 0, Offer: 0, Rejected: 0 };
                 applications.forEach((app: any) => {
@@ -38,7 +44,7 @@ export const RecruiterDashboard: React.FC = () => {
                 setStats({
                     jobs: jobs.length,
                     applicants: applications.length,
-                    interviews: interviews.length,
+                    interviews: upcomingInterviews.length,
                     pipeline: pipelineCounts
                 });
             } catch (err) {
