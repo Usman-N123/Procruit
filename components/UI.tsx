@@ -84,7 +84,7 @@ export const Input: React.FC<InputProps> = ({ label, error, className = '', icon
           </div>
         )}
         <input
-          className={`w-full bg-gray-50 focus:bg-neutral-900 border ${error ? 'border-red-500' : 'border-neutral-800'} rounded-lg py-2.5 text-white placeholder-neutral-600 focus:border-[#7B2CBF] focus:ring-1 focus:ring-[#7B2CBF] transition-colors duration-200 outline-none ${Icon ? 'pl-10' : 'px-4'} ${EndIcon ? 'pr-10' : 'px-4'} ${className}`}
+          className={`w-full bg-black/50 border ${error ? 'border-red-500' : 'border-neutral-800'} rounded-lg py-2.5 text-white placeholder-neutral-600 focus:border-[#7B2CBF] focus:ring-1 focus:ring-[#7B2CBF] transition-colors duration-200 outline-none [&:-webkit-autofill]:bg-black [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0px_1000px_#000000_inset] ${Icon ? 'pl-10' : 'px-4'} ${EndIcon ? 'pr-10' : 'px-4'} ${className}`}
           {...props}
         />
         {EndIcon && (

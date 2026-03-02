@@ -402,29 +402,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type }) => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             )}
-            {type === 'signup' && (
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="name@example.com"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            )}
 
-            {type === 'signup' && (
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                endIcon={showPassword ? EyeOff : Eye}
-                onEndIconClick={() => setShowPassword(!showPassword)}
-              />
-            )}
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="name@example.com"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            />
+
+
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              endIcon={showPassword ? EyeOff : Eye}
+              onEndIconClick={() => setShowPassword(!showPassword)}
+            />
 
             {type === 'signup' && (
               <Input
