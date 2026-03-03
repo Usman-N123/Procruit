@@ -7,7 +7,7 @@ import { AdminOverview, AdminUsers, AdminJobs, AdminApprovals } from './pages/Ad
 import { OrgAdminDashboard, OrgSettings } from './pages/OrgAdmin';
 import { RecruiterDashboard, CreateJob, MyJobs, Applicants, RecruiterProfile, FindInterviewers, RecruiterInterviews } from './pages/Recruiter';
 import { RankedCandidates } from './pages/RankedCandidates';
-import { CandidateDashboard, CandidateJobs, CandidateProfile, CandidateInterviews } from './pages/Candidate';
+import { CandidateDashboard, CandidateJobs, CandidateProfile, CandidateInterviews, CandidateApplications } from './pages/Candidate';
 import { InterviewerDashboard, InterviewerProfile, InterviewerInterviews, InterviewerRequests } from './pages/Interviewer';
 import InterviewRoom from './pages/InterviewRoom';
 
@@ -57,7 +57,7 @@ const App: React.FC = () => {
           <Route index element={<CandidateDashboard />} />
           <Route path="jobs" element={<CandidateJobs />} />
           <Route path="profile" element={<CandidateProfile />} />
-          <Route path="applications" element={<div className="text-center p-10 text-neutral-500">Applications Page Placeholder</div>} />
+          <Route path="applications" element={<CandidateApplications />} />
           <Route path="interviews" element={<CandidateInterviews />} />
           <Route path="*" element={<Navigate to="/candidate" replace />} />
         </Route>

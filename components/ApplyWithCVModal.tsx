@@ -1,16 +1,18 @@
-import React, { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Modal, Button, Badge } from './UI';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button } from './UI';
+import { CheckCircle, AlertCircle, Sparkles, FileText } from 'lucide-react';
+import { apiRequest } from '../utils/api';
+import { User } from '../types';
 
-interface ApplyWithCVModalProps {
+interface ApplyModalProps {
     isOpen: boolean;
     onClose: () => void;
     jobId: string;
     jobTitle: string;
+    onSuccess?: () => void;
 }
 
-type ModalState = 'upload' | 'analyzing' | 'success' | 'error';
+type ModalState = 'initial' | 'analyzing' | 'success' | 'error';
 
 interface AIResult {
     aiScore: number | null;
@@ -19,53 +21,48 @@ interface AIResult {
     aiAnalyzed: boolean;
 }
 
-export const ApplyWithCVModal: React.FC<ApplyWithCVModalProps> = ({ isOpen, onClose, jobId, jobTitle }) => {
-    const [file, setFile] = useState<File | null>(null);
-    const [state, setState] = useState<ModalState>('upload');
+export const ApplyWithCVModal: React.FC<ApplyModalProps> = ({ isOpen, onClose, jobId, jobTitle, onSuccess }) => {
+    const [state, setState] = useState<ModalState>('initial');
     const [aiResult, setAiResult] = useState<AIResult | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
+    const [user, setUser] = useState<User | null>(null);
+    const [loadingUser, setLoadingUser] = useState(true);
 
-    const onDrop = useCallback((acceptedFiles: File[]) => {
-        if (acceptedFiles.length > 0) {
-            const f = acceptedFiles[0];
-            if (f.type !== 'application/pdf') {
-                setErrorMessage('Only PDF files are accepted.');
-                return;
-            }
-            if (f.size > 10 * 1024 * 1024) {
-                setErrorMessage('File size must be under 10MB.');
-                return;
-            }
-            setFile(f);
+    useEffect(() => {
+        if (isOpen) {
+            apiRequest(`/users/profile?t=${Date.now()}`)
+                .then((data) => {
+                    console.log('ApplyModal Fetched User Profile Data:', data);
+                    setUser(data);
+                    setLoadingUser(false);
+                })
+                .catch((err) => {
+                    console.error('Failed to fetch user profile', err);
+                    setLoadingUser(false);
+                });
+
+            // Reset state
+            setState('initial');
+            setAiResult(null);
             setErrorMessage('');
         }
-    }, []);
+    }, [isOpen]);
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        accept: { 'application/pdf': ['.pdf'] },
-        maxFiles: 1,
-        maxSize: 10 * 1024 * 1024,
-        multiple: false,
-    } as any);
+    const hasResume = user && (user.resumeUrl || user.resume || (user.profile && (user.profile as any).resume));
 
     const handleSubmit = async () => {
-        if (!file) return;
+        if (!hasResume) return;
 
         setState('analyzing');
         setErrorMessage('');
 
         try {
-            const formData = new FormData();
-            formData.append('resume', file);
-
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/applications/${jobId}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: formData,
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
             const data = await res.json();
@@ -81,6 +78,9 @@ export const ApplyWithCVModal: React.FC<ApplyWithCVModalProps> = ({ isOpen, onCl
                 aiAnalyzed: data.aiAnalyzed ?? false,
             });
             setState('success');
+            if (onSuccess) {
+                onSuccess();
+            }
         } catch (err: any) {
             setErrorMessage(err.message || 'Something went wrong');
             setState('error');
@@ -88,17 +88,10 @@ export const ApplyWithCVModal: React.FC<ApplyWithCVModalProps> = ({ isOpen, onCl
     };
 
     const handleClose = () => {
-        setFile(null);
-        setState('upload');
+        setState('initial');
         setAiResult(null);
         setErrorMessage('');
         onClose();
-    };
-
-    const formatFileSize = (bytes: number) => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
     const getScoreBadge = (score: number) => {
@@ -110,71 +103,66 @@ export const ApplyWithCVModal: React.FC<ApplyWithCVModalProps> = ({ isOpen, onCl
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title={`Apply for ${jobTitle}`}>
             <div className="space-y-6">
-                {/* Upload State */}
-                {state === 'upload' && (
+                {/* Initial State */}
+                {state === 'initial' && (
                     <>
-                        <div
-                            {...getRootProps()}
-                            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${isDragActive
-                                ? 'border-[#7B2CBF] bg-[#7B2CBF]/10 scale-[1.02]'
-                                : file
-                                    ? 'border-emerald-500/50 bg-emerald-500/5'
-                                    : 'border-neutral-700 hover:border-[#7B2CBF]/50 hover:bg-neutral-800/50'
-                                }`}
-                        >
-                            <input {...getInputProps()} />
-                            {file ? (
-                                <div className="flex items-center justify-center gap-3">
-                                    <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                                        <FileText className="w-6 h-6 text-emerald-400" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-white font-medium">{file.name}</p>
-                                        <p className="text-xs text-neutral-400">{formatFileSize(file.size)}</p>
-                                    </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFile(null);
-                                        }}
-                                        className="ml-auto p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-                                    >
-                                        <X size={16} />
-                                    </button>
+                        {loadingUser ? (
+                            <div className="flex justify-center py-8 text-neutral-400">Loading user data...</div>
+                        ) : !hasResume ? (
+                            <div className="text-center py-8 space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-2">
+                                    <AlertCircle className="w-8 h-8 text-amber-500" />
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="w-16 h-16 rounded-2xl bg-[#7B2CBF]/10 flex items-center justify-center mx-auto mb-4">
-                                        <Upload className="w-8 h-8 text-[#7B2CBF]" />
+                                <h3 className="text-lg font-bold text-white">Missing CV</h3>
+                                <p className="text-sm text-neutral-400">
+                                    Please update your profile and upload a CV before applying.
+                                </p>
+                                <Button
+                                    className="mt-4"
+                                    onClick={() => {
+                                        handleClose();
+                                        window.location.href = '#/candidate/profile';
+                                    }}
+                                >
+                                    Go to Profile Settings
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="border border-neutral-700/50 rounded-xl p-5 bg-neutral-800/20">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-12 h-12 rounded-lg bg-[#7B2CBF]/10 flex items-center justify-center text-[#7B2CBF]">
+                                            <FileText size={24} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-medium text-white">Use Saved CV</h4>
+                                            <p className="text-sm text-neutral-400">We will use the CV currently saved in your profile.</p>
+                                        </div>
                                     </div>
-                                    <p className="text-white font-medium mb-1">
-                                        {isDragActive ? 'Drop your CV here' : 'Drag & drop your CV here'}
-                                    </p>
-                                    <p className="text-xs text-neutral-500">or click to browse • PDF only • Max 10MB</p>
-                                </>
-                            )}
-                        </div>
 
-                        {errorMessage && (
-                            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
-                                <AlertCircle size={16} />
-                                {errorMessage}
+                                    <div className="flex items-center gap-3 p-3 bg-[#7B2CBF]/5 border border-[#7B2CBF]/10 rounded-lg">
+                                        <Sparkles className="w-4 h-4 text-[#7B2CBF] flex-shrink-0" />
+                                        <p className="text-xs text-neutral-300">
+                                            Our AI will analyze your profile CV against the job requirements to calculate your suitability score.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {errorMessage && (
+                                    <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+                                        <AlertCircle size={16} />
+                                        {errorMessage}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+                                    <Button onClick={handleSubmit}>
+                                        Submit Application
+                                    </Button>
+                                </div>
                             </div>
                         )}
-
-                        <div className="flex items-center gap-3 p-4 bg-[#7B2CBF]/5 border border-[#7B2CBF]/20 rounded-xl">
-                            <Sparkles className="w-5 h-5 text-[#7B2CBF] flex-shrink-0" />
-                            <p className="text-xs text-neutral-300">
-                                Our AI will analyze your CV against the job requirements and provide an instant suitability score.
-                            </p>
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-2">
-                            <Button variant="ghost" onClick={handleClose}>Cancel</Button>
-                            <Button onClick={handleSubmit} disabled={!file}>
-                                Submit Application
-                            </Button>
-                        </div>
                     </>
                 )}
 
@@ -288,7 +276,7 @@ export const ApplyWithCVModal: React.FC<ApplyWithCVModalProps> = ({ isOpen, onCl
                         <p className="text-sm text-neutral-400 mb-6">{errorMessage}</p>
                         <div className="flex justify-center gap-3">
                             <Button variant="ghost" onClick={handleClose}>Cancel</Button>
-                            <Button onClick={() => setState('upload')}>Try Again</Button>
+                            <Button onClick={() => setState('initial')}>Try Again</Button>
                         </div>
                     </div>
                 )}

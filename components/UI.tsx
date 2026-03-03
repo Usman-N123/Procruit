@@ -138,14 +138,16 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-neutral-800">
+      <div className="relative bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        {/* Sticky header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-800 flex-shrink-0">
           <h3 className="text-xl font-semibold text-white">{title}</h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-6">
+        {/* Scrollable body */}
+        <div className="p-6 overflow-y-auto flex-1">
           {children}
         </div>
       </div>

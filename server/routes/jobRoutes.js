@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { getJobs, getJobById, createJob, applyJob, getMyJobs, updateApplicationStatus, getMyReceivedApplications } = require('../controllers/jobController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const { protect, authorize, optionalAuth } = require('../middleware/authMiddleware');
 
-router.get('/', getJobs); // Public
+router.get('/', optionalAuth, getJobs); // Public but reads user if logged in
 router.get('/my-jobs', protect, authorize('RECRUITER'), getMyJobs);
 router.get('/:id', getJobById); // Public
 router.post('/', protect, authorize('RECRUITER', 'ORG_ADMIN'), createJob);
