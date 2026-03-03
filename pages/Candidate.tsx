@@ -6,6 +6,7 @@ import { apiRequest } from '../utils/api';
 import { Job, User, Interview, Message, Experience } from '../types';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import InterviewsTab from '../components/InterviewsTab';
+import { ApplyWithCVModal } from '../components/ApplyWithCVModal';
 
 // Helper for Base64
 const convertToBase64 = (file: File): Promise<string> => {
@@ -122,6 +123,7 @@ export const CandidateJobs: React.FC = () => {
         location: '',
         type: ''
     });
+    const [applyModalJob, setApplyModalJob] = useState<Job | null>(null);
 
     const fetchJobs = () => {
         const queryParams = new URLSearchParams();
@@ -145,13 +147,8 @@ export const CandidateJobs: React.FC = () => {
         fetchJobs();
     };
 
-    const handleApply = async (id: string) => {
-        try {
-            await apiRequest(`/jobs/${id}/apply`, 'POST');
-            alert('Applied successfully!');
-        } catch (error) {
-            alert('Failed to apply or already applied.');
-        }
+    const handleApply = (job: Job) => {
+        setApplyModalJob(job);
     };
 
     return (
@@ -213,7 +210,7 @@ export const CandidateJobs: React.FC = () => {
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="ghost" className="flex-1" onClick={(e) => { e.stopPropagation(); setSelectedJob(job); }}>View Details</Button>
-                                <Button variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); handleApply(job._id); }}>Apply</Button>
+                                <Button variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); handleApply(job); }}>Apply with CV</Button>
                             </div>
                         </Card>
                     ))
@@ -265,11 +262,19 @@ export const CandidateJobs: React.FC = () => {
 
                         <div className="pt-6 border-t border-neutral-800 flex justify-end gap-3">
                             <Button variant="ghost" onClick={() => setSelectedJob(null)}>Close</Button>
-                            <Button onClick={() => { handleApply(selectedJob._id); setSelectedJob(null); }}>Apply for this Job</Button>
+                            <Button onClick={() => { handleApply(selectedJob); setSelectedJob(null); }}>Apply with CV</Button>
                         </div>
                     </div>
                 )}
             </Modal>
+
+            {/* Apply with CV Modal */}
+            <ApplyWithCVModal
+                isOpen={applyModalJob !== null}
+                onClose={() => setApplyModalJob(null)}
+                jobId={applyModalJob?._id || ''}
+                jobTitle={applyModalJob?.title || ''}
+            />
         </div>
     )
 }

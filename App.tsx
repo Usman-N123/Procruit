@@ -6,6 +6,7 @@ import { HomePage, AuthPage } from './pages/Public';
 import { AdminOverview, AdminUsers, AdminJobs, AdminApprovals } from './pages/Admin';
 import { OrgAdminDashboard, OrgSettings } from './pages/OrgAdmin';
 import { RecruiterDashboard, CreateJob, MyJobs, Applicants, RecruiterProfile, FindInterviewers, RecruiterInterviews } from './pages/Recruiter';
+import { RankedCandidates } from './pages/RankedCandidates';
 import { CandidateDashboard, CandidateJobs, CandidateProfile, CandidateInterviews } from './pages/Candidate';
 import { InterviewerDashboard, InterviewerProfile, InterviewerInterviews, InterviewerRequests } from './pages/Interviewer';
 import InterviewRoom from './pages/InterviewRoom';
@@ -47,6 +48,7 @@ const App: React.FC = () => {
           <Route path="hire-interviewer" element={<FindInterviewers />} />
           <Route path="schedule" element={<RecruiterInterviews />} />
           <Route path="profile" element={<RecruiterProfile />} />
+          <Route path="ranked/:jobId" element={<RankedCandidates />} />
           <Route path="*" element={<Navigate to="/recruiter" replace />} />
         </Route>
 
