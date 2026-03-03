@@ -70,7 +70,11 @@ export interface Application {
   job: string | Job; // Populated
   candidate: string | User; // Populated
   resume?: string;
-  status: 'Applied' | 'Screening' | 'Interview' | 'Offer' | 'Rejected';
+  resumeUrl?: string;
+  aiScore?: number | null;
+  matchedKeywords?: string[];
+  missingKeywords?: string[];
+  status: 'Applied' | 'Screening' | 'Interview' | 'Offer' | 'Rejected' | 'Pending AI';
   appliedAt: string;
 }
 

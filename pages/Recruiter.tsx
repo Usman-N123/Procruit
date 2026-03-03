@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Badge, Modal } from '../components/UI';
-import { Plus, Search, Calendar, Clock, Video, FileText, ChevronRight, BarChart2, User, MapPin, Briefcase, GraduationCap, Github, Linkedin, Globe, Upload, Lock, Shield, MessageSquare, Link as LinkIcon, Download, Star, DollarSign } from 'lucide-react';
+import { Plus, Search, Calendar, Clock, Video, FileText, ChevronRight, BarChart2, User, MapPin, Briefcase, GraduationCap, Github, Linkedin, Globe, Upload, Lock, Shield, MessageSquare, Link as LinkIcon, Download, Star, DollarSign, Sparkles } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 import { Job, User as UserType } from '../types';
 import InterviewsTab from '../components/InterviewsTab';
@@ -167,6 +167,9 @@ export const MyJobs: React.FC = () => {
                                 <Badge variant={job.status === 'Active' ? 'neutral' : 'outline'} className={job.status === 'Active' ? 'text-green-400 border-green-900' : 'text-neutral-500'}>
                                     {job.status}
                                 </Badge>
+                                <Button variant="outline" size="sm" onClick={() => window.location.href = `#/recruiter/ranked/${job._id}`}>
+                                    <Sparkles className="w-4 h-4 mr-1.5" />AI Rankings
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={() => window.location.href = `#/recruiter/applicants?jobId=${job._id}`}>View Applicants</Button>
                             </div>
                         </Card>

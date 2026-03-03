@@ -1,4 +1,8 @@
-# Logs
+node_modules
+dist
+dist-ssr
+*.local
+
 logs
 *.log
 npm-debug.log*
@@ -7,12 +11,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+.env
+*.env
+.env.*
 
-# Editor directories and files
+__pycache__/
+venv/
+env/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,19 +33,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
 
-
-# --- ADDED FOR PROCRUIT PROJECT ---
-
-# Environment Variables (CRITICAL SECURITY)
-.env
-*.env
-.env.*
-
-# Python / AI Service
-__pycache__/
-venv/
-env/
-*.pyc
-*.pyo
-*.pyd
+server/uploads/

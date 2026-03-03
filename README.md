@@ -1,39 +1,84 @@
-# Procruit - Recruitment Platform
+# Procruit — Recruitment Platform
 
-A comprehensive recruitment platform for Candidates, Recruiters, and Freelance Interviewers.
+A full-stack recruitment platform for Candidates, Recruiters, and Freelance Interviewers featuring AI-powered CV parsing and candidate ranking.
 
 ## Tech Stack
-- **Frontend**: React, Vite, TailwindCSS
-- **Backend**: Node.js, Express, MongoDB (Atlas)
-- **Database**: MongoDB
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, Vite, TailwindCSS |
+| Backend | Node.js, Express 5, MongoDB Atlas |
+| AI Service | Python, FastAPI, spaCy, SentenceTransformers |
 
 ## Prerequisites
-- Node.js installed
 
-## Quick Start (Run Completely from Terminal)
+- **Node.js** v18+
+- **Python** 3.10+
+- **npm** (ships with Node.js)
 
-1.  **Install Root Dependencies (Frontend)**
-    ```bash
-    npm install
-    ```
+## Initial Setup
 
-2.  **Install Server Dependencies (Backend)**
-    ```bash
-    cd server
-    npm install
-    cd ..
-    ```
+### 1. Install Root & Frontend Dependencies
 
-3.  **Run the Application**
-    From the root directory, run:
-    ```bash
-    npm run dev
-    ```
-    This command starts both the Frontend (Vite) and Backend (Express) concurrently.
+```bash
+npm install
+```
 
-4.  **Access the App**
-    -   Frontend: [http://localhost:3000](http://localhost:3000)
-    -   Backend API: [http://localhost:5001](http://localhost:5001)
+### 2. Install Backend Dependencies
 
-## Environment Variables
-The backend comes pre-configured with a MongoDB Atlas connection string in `server/.env`. No local database setup is required.
+```bash
+cd server
+npm install
+cd ..
+```
+
+### 3. Set Up the Python AI Service
+
+```bash
+cd ai-service
+python -m venv venv
+.\venv\Scripts\pip install -r requirements.txt
+.\venv\Scripts\python -m spacy download en_core_web_sm
+cd ..
+```
+
+### 4. Environment Variables
+
+Create a `.env` file inside the `server/` directory with the required variables (MongoDB URI, JWT secret, etc.). A template is provided in the repository.
+
+## Running the Project
+
+From the project root, start all three services with a single command:
+
+```bash
+npm run dev
+```
+
+This launches:
+
+| Service | URL |
+|---|---|
+| Frontend (Vite) | http://localhost:3000 |
+| Backend (Express) | http://localhost:5001 |
+| AI Service (FastAPI) | http://localhost:8000 |
+
+## Project Structure
+
+```
+procruit/
+├── ai-service/          Python FastAPI microservice
+│   ├── main.py
+│   ├── requirements.txt
+│   └── venv/
+├── components/          React UI components
+├── pages/               React page components
+├── server/              Node.js/Express backend
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   └── index.js
+├── utils/               Shared frontend utilities
+├── App.tsx              React app entry
+├── vite.config.ts       Vite configuration
+└── package.json         Root scripts & frontend deps
+```
