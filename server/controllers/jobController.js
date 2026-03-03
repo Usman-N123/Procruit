@@ -10,6 +10,15 @@ exports.getJobs = async (req, res) => {
 
         let query = { status: 'Active' };
 
+        // Exclude jobs the candidate has already applied for
+        if (req.user && req.user.role === 'CANDIDATE') {
+            const appliedJobs = await Application.find({ candidate: req.user._id || req.user.id }).select('job');
+            const appliedJobIds = appliedJobs.map(app => app.job);
+            if (appliedJobIds.length > 0) {
+                query._id = { $nin: appliedJobIds };
+            }
+        }
+
         if (title) {
             query.title = { $regex: title, $options: 'i' };
         }

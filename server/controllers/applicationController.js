@@ -99,28 +99,11 @@ exports.applyWithCV = async (req, res) => {
         });
 
         if (existingApplication) {
+            console.error('[DEBUG ApplicationController] Rejecting application due to DUPLICATE APPLICATION!');
             return res.status(400).json({ message: 'You have already applied to this job' });
         }
 
-        // 3. Validate uploaded file
-        if (!req.file) {
-            return res.status(400).json({ message: 'Please upload a PDF resume' });
-        }
-
-        if (req.file.mimetype !== 'application/pdf') {
-            return res.status(400).json({ message: 'Only PDF files are accepted' });
-        }
-
-        // 4. Save file to local uploads for persistence
-        let resumeUrl = null;
-        try {
-            resumeUrl = saveResumeFile(req.file.buffer, req.file.originalname);
-        } catch (fileErr) {
-            console.error('[File Upload] Error saving resume:', fileErr.message);
-            // Non-blocking: continue even if file save fails
-        }
-
-        // 5. Get user profile data for snapshot
+        // 3. Get user profile data for snapshot
         const user = await User.findById(req.user.id).populate('profile');
         let profileData = {};
         if (user.profile) {
@@ -131,6 +114,40 @@ exports.applyWithCV = async (req, res) => {
             }
         }
 
+        // 4. Validate that the candidate has a resumeUrl
+        const userResumeUrl = user.resumeUrl || (profileData ? profileData.resume : null);
+        console.log('[DEBUG ApplicationController] user.id:', req.user.id);
+        console.log('[DEBUG ApplicationController] user.resumeUrl:', user.resumeUrl);
+        console.log('[DEBUG ApplicationController] profileData.resume:', profileData ? profileData.resume : 'N/A');
+        console.log('[DEBUG ApplicationController] Final userResumeUrl resolved as:', userResumeUrl);
+
+        if (!userResumeUrl) {
+            console.error('[DEBUG ApplicationController] Rejecting application due to missing CV URL!');
+            return res.status(400).json({ message: 'Please update your profile and upload a CV before applying' });
+        }
+
+        // 5. Read the existing resume file from disk
+        let fileBuffer;
+        let originalName = 'resume.pdf';
+        try {
+            console.log('[DEBUG ApplicationController] Attempting to read file from userResumeUrl:', userResumeUrl);
+            // Extact filename from full URL like http://localhost:5000/uploads/filename.pdf
+            const urlParts = userResumeUrl.split('/');
+            const filename = urlParts[urlParts.length - 1];
+            // Files from CandidateProfile upload to public/uploads
+            const relativePath = userResumeUrl.includes('/uploads/resumes/')
+                ? path.join('uploads', 'resumes', filename)
+                : path.join('uploads', filename);
+            const resumePath = path.join(__dirname, '..', 'public', relativePath);
+            console.log('[DEBUG ApplicationController] Resolved absolute file path:', resumePath);
+            fileBuffer = fs.readFileSync(resumePath);
+            originalName = filename;
+            console.log('[DEBUG ApplicationController] Successfully read file buffer of size:', fileBuffer.length);
+        } catch (fileErr) {
+            console.error('[File Read] Error reading existing resume:', fileErr.message);
+            // Non-blocking for application creation, but AI will fail
+        }
+
         // 6. Build job description text for AI
         const jobDescriptionText = [
             job.description || '',
@@ -139,18 +156,21 @@ exports.applyWithCV = async (req, res) => {
         ].filter(Boolean).join('\n\n');
 
         // 7. Call AI service (with graceful degradation)
-        const aiResult = await callAIService(
-            req.file.buffer,
-            req.file.originalname,
-            jobDescriptionText
-        );
+        let aiResult = null;
+        if (fileBuffer) {
+            aiResult = await callAIService(
+                fileBuffer,
+                originalName,
+                jobDescriptionText
+            );
+        }
 
         // 8. Create application
         const applicationData = {
             job: job._id,
             candidate: req.user.id,
-            resume: user.resumeUrl || (profileData ? profileData.resume : null),
-            resumeUrl: resumeUrl,
+            resume: userResumeUrl,
+            resumeUrl: userResumeUrl,
             experience: profileData ? profileData.experience : [],
             education: profileData ? profileData.education : [],
             skills: profileData ? profileData.skills : [],
@@ -236,5 +256,21 @@ exports.getRankedCandidates = async (req, res) => {
     } catch (err) {
         console.error('[getRankedCandidates] Error:', err);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Get applications for logged-in candidate
+// @route   GET /api/applications/my-applications
+// @access  Private (Candidate)
+exports.getMyApplications = async (req, res) => {
+    try {
+        const applications = await Application.find({ candidate: req.user.id || req.user._id })
+            .populate('job', 'title company location type')
+            .sort({ appliedAt: -1 });
+
+        res.json(applications);
+    } catch (err) {
+        console.error('[getMyApplications] Error:', err);
+        res.status(500).json({ message: 'Server error fetching applications' });
     }
 };

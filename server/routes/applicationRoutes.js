@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { applyWithCV, getRankedCandidates } = require('../controllers/applicationController');
+const { applyWithCV, getRankedCandidates, getMyApplications } = require('../controllers/applicationController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Multer in-memory storage for PDF uploads
@@ -18,7 +18,10 @@ const upload = multer({
 });
 
 // POST /api/applications/:jobId — Candidate applies with CV upload
-router.post('/:jobId', protect, authorize('CANDIDATE'), upload.single('resume'), applyWithCV);
+router.post('/:jobId', protect, authorize('CANDIDATE'), applyWithCV);
+
+// GET /api/applications/my-applications — Candidate views their applications
+router.get('/my-applications', protect, authorize('CANDIDATE'), getMyApplications);
 
 // GET /api/applications/:jobId/candidates — Recruiter views ranked candidates
 router.get('/:jobId/candidates', protect, authorize('RECRUITER'), getRankedCandidates);

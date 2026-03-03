@@ -210,7 +210,7 @@ export const CandidateJobs: React.FC = () => {
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="ghost" className="flex-1" onClick={(e) => { e.stopPropagation(); setSelectedJob(job); }}>View Details</Button>
-                                <Button variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); handleApply(job); }}>Apply with CV</Button>
+                                <Button variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); handleApply(job); }}>Apply</Button>
                             </div>
                         </Card>
                     ))
@@ -262,18 +262,22 @@ export const CandidateJobs: React.FC = () => {
 
                         <div className="pt-6 border-t border-neutral-800 flex justify-end gap-3">
                             <Button variant="ghost" onClick={() => setSelectedJob(null)}>Close</Button>
-                            <Button onClick={() => { handleApply(selectedJob); setSelectedJob(null); }}>Apply with CV</Button>
+                            <Button onClick={() => { handleApply(selectedJob); setSelectedJob(null); }}>Apply</Button>
                         </div>
                     </div>
                 )}
             </Modal>
 
-            {/* Apply with CV Modal */}
+            {/* Apply Modal */}
             <ApplyWithCVModal
                 isOpen={applyModalJob !== null}
                 onClose={() => setApplyModalJob(null)}
                 jobId={applyModalJob?._id || ''}
                 jobTitle={applyModalJob?.title || ''}
+                onSuccess={() => {
+                    setJobs(prev => prev.filter(j => j._id !== applyModalJob?._id));
+                    alert("Application submitted! Moved to your Applications tab.");
+                }}
             />
         </div>
     )
@@ -307,20 +311,22 @@ export const CandidateProfile: React.FC = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const user: User = await apiRequest('/users/profile');
+                const user: any = await apiRequest(`/users/profile?t=${Date.now()}`); // cache busting
+                const profileData = user.profile || {};
+
                 setFormData({
                     firstName: user.firstName || user.name.split(' ')[0] || '',
                     lastName: user.lastName || user.name.split(' ').slice(1).join(' ') || '',
-                    headline: user.headline || '',
-                    bio: user.bio || '',
-                    skills: user.skills ? user.skills.join(', ') : ''
+                    headline: profileData.headline || '',
+                    bio: profileData.bio || '',
+                    skills: profileData.skills ? profileData.skills.join(', ') : ''
                 });
-                setExperience(user.experience || []);
-                setEducation(user.education || []);
+                setExperience(profileData.experience || []);
+                setEducation(profileData.education || []);
                 setProfilePicture(user.profilePicture || null);
-                if (user.resumeUrl || user.resume) {
+                if (user.resumeUrl || profileData.resume) {
                     setResumeName('Resume Uploaded');
-                    setResumeUrl(user.resumeUrl || user.resume);
+                    setResumeUrl(user.resumeUrl || profileData.resume);
                 }
             } catch (error) {
                 console.error("Failed to fetch profile", error);
@@ -651,3 +657,53 @@ export const CandidateProfile: React.FC = () => {
 }
 
 export const CandidateInterviews: React.FC = () => <InterviewsTab role="CANDIDATE" />;
+
+export const CandidateApplications: React.FC = () => {
+    const [applications, setApplications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        apiRequest('/applications/my-applications')
+            .then(data => setApplications(data))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <div className="text-center p-8 text-neutral-500">Loading applications...</div>;
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold">My Applications</h2>
+            {applications.length === 0 ? (
+                <div className="text-center p-12 bg-neutral-900 border border-neutral-800 rounded-xl">
+                    <Briefcase className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
+                    <p className="text-neutral-400">You haven't applied to any jobs yet.</p>
+                </div>
+            ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                    {applications.map(app => (
+                        <Card key={app._id} className="flex flex-col">
+                            <div className="flex justify-between items-start mb-2">
+                                <h3 className="font-bold text-lg">{app.job?.title || 'Unknown Job'}</h3>
+                                <Badge variant={
+                                    app.status === 'Applied' ? 'neutral' :
+                                        app.status === 'Rejected' ? 'error' :
+                                            app.status === 'Pending AI' ? 'neutral' : 'success'
+                                }>
+                                    {app.status}
+                                </Badge>
+                            </div>
+                            <p className="text-[#7B2CBF] text-sm mb-4">{app.job?.company || 'Unknown Company'} • {app.job?.location || 'Remote'}</p>
+                            <div className="mt-auto pt-4 border-t border-neutral-800 flex justify-between items-center">
+                                <span className="text-xs text-neutral-500">Applied: {new Date(app.appliedAt).toLocaleDateString()}</span>
+                                {app.aiScore !== null && (
+                                    <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Score: {app.aiScore}</span>
+                                )}
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
