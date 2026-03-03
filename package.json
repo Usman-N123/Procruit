@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "npm run dev --prefix server",
+    "dev": "concurrently -n client,server,ai -c cyan,green,magenta \"npm run client\" \"npm run server\" \"npm run ai\"",
     "client": "vite",
+    "server": "npm run dev --prefix server",
+    "ai": "cd ai-service && .\\venv\\Scripts\\python -m uvicorn main:app --reload --port 8000",
     "build": "vite build",
     "preview": "vite preview"
   },

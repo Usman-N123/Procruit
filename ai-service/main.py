@@ -11,6 +11,7 @@ PDF files are processed strictly in-memory (no disk writes).
 
 import io
 import logging
+import string
 from typing import List
 
 import pdfplumber
@@ -38,15 +39,52 @@ logger.info("Loading spaCy model (en_core_web_sm) ...")
 nlp = spacy.load("en_core_web_sm")
 logger.info("spaCy model loaded.")
 
-# Common filler / non-technical words to exclude from keyword extraction
+# Common NER labels that are never useful keywords
 STOP_LABELS = {"DATE", "TIME", "PERCENT", "MONEY", "QUANTITY", "ORDINAL", "CARDINAL"}
 
-# Curated list of common tech keywords to boost extraction accuracy
+# POS tags allowed when harvesting noun-chunks / tokens
+ALLOWED_POS = {"PROPN", "NOUN"}
+
+# Conversational / filler phrases that should never be keywords
+NOISE_PHRASES = {
+    "the ideal candidate", "this role", "ideal candidate", "the role",
+    "cross-functional teams", "team player", "strong communication",
+    "years of experience", "year of experience", "a plus",
+    "fast-paced environment", "self-starter", "detail-oriented",
+    "problem solver", "strong work ethic", "ability to",
+    "responsible for", "looking for", "we are looking",
+    "you will", "you", "we", "they", "our", "your",
+}
+
+# Generic JD nouns that spaCy tags as NOUN but carry zero technical signal
+JD_STOPWORDS = {
+    "candidate", "role", "team", "teams", "responsibilities", "responsibility",
+    "experience", "hands", "key", "design", "development", "operations",
+    "engineering", "monitor", "practices", "practice", "delivery",
+    "reliability", "cost", "efficiency", "collaborate", "build",
+    "system", "systems", "technologies", "technology", "environment",
+    "environments", "solutions", "solution", "tools", "tool",
+    "knowledge", "understanding", "skills", "skill", "ability",
+    "proficiency", "work", "working", "position", "opportunity",
+    "requirements", "requirement", "qualifications", "qualification",
+    "company", "organization", "organisation", "client", "clients",
+    "project", "projects", "service", "services", "support",
+    "performance", "management", "process", "processes",
+    "implementation", "integration", "deployment", "application",
+    "applications", "infrastructure", "architecture", "platform",
+    "stakeholders", "communication", "collaboration", "documentation",
+    "standards", "standard", "strategy", "strategies",
+    "level", "degree", "bachelor", "master", "certification",
+    "minimum", "preferred", "required", "plus", "bonus",
+    "job", "description", "title", "summary", "overview",
+}
+
+# Curated list of tech / professional keywords to boost extraction
 TECH_KEYWORDS = {
     "python", "java", "javascript", "typescript", "react", "angular", "vue",
-    "node", "nodejs", "express", "django", "flask", "fastapi", "spring",
+    "node", "nodejs", "node.js", "express", "django", "flask", "fastapi", "spring",
     "sql", "nosql", "mongodb", "postgresql", "mysql", "redis", "elasticsearch",
-    "docker", "kubernetes", "aws", "azure", "gcp", "git", "ci/cd", "cicd",
+    "docker", "kubernetes", "k8s", "aws", "azure", "gcp", "git", "ci/cd", "cicd",
     "html", "css", "sass", "tailwind", "bootstrap", "figma",
     "graphql", "rest", "api", "microservices", "serverless",
     "tensorflow", "pytorch", "pandas", "numpy", "scikit-learn",
@@ -58,6 +96,12 @@ TECH_KEYWORDS = {
     "webpack", "vite", "next.js", "nextjs", "nuxt", "gatsby",
     "testing", "jest", "mocha", "cypress", "selenium",
     "devops", "terraform", "ansible", "jenkins", "github actions",
+    "oauth", "jwt", "sso", "saml", "openid",
+    "rabbitmq", "kafka", "celery", "airflow",
+    "nginx", "apache", "load balancer",
+    "s3", "ec2", "lambda", "ecs", "eks",
+    "data engineering", "data science", "data analysis",
+    "tableau", "power bi", "looker",
 }
 
 # ---------------------------------------------------------------------------
@@ -104,30 +148,83 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     return full_text
 
 
+def _normalise(token_text: str) -> str:
+    """Lowercase and strip leading/trailing punctuation from a token."""
+    return token_text.lower().strip(string.punctuation + " \t\n")
+
+
+def _is_noise(phrase: str) -> bool:
+    """Return True if phrase is a known filler / conversational noise."""
+    return phrase in NOISE_PHRASES
+
+
 def extract_keywords(text: str) -> set[str]:
     """
-    Extract meaningful keywords from text using spaCy NER + noun chunks,
-    plus a curated tech keyword lookup.
+    Extract meaningful **technical / professional** keywords from text.
+
+    Strategy
+    --------
+    1. spaCy noun-chunks — keep only PROPN/NOUN tokens, enforce max 2 words,
+       and filter against JD_STOPWORDS + spaCy stop words.
+    2. spaCy named entities — skip date/number labels, noise, and fluff.
+    3. Individual PROPN / NOUN tokens (unigrams).
+    4. Curated TECH_KEYWORDS substring lookup.
+
+    All results are lowercased and punctuation-stripped before returning.
     """
-    doc = nlp(text.lower())
+    doc = nlp(text)
     keywords: set[str] = set()
+    stop_words = nlp.Defaults.stop_words | JD_STOPWORDS
 
-    # 1. Named entities (skip date/number-like labels)
-    for ent in doc.ents:
-        if ent.label_ not in STOP_LABELS and len(ent.text.strip()) > 1:
-            keywords.add(ent.text.strip())
-
-    # 2. Noun chunks (unigrams & bigrams)
+    # ── 1. Noun chunks (max 2 words, root must be NOUN/PROPN) ──────────
     for chunk in doc.noun_chunks:
-        clean = chunk.text.strip()
-        if len(clean) > 1 and not clean.isnumeric():
-            keywords.add(clean)
+        useful_tokens = [
+            _normalise(tok.text)
+            for tok in chunk
+            if tok.pos_ in ALLOWED_POS
+            and _normalise(tok.text) not in stop_words
+            and len(_normalise(tok.text)) > 1
+        ]
+        if not useful_tokens:
+            continue
+        # Enforce max 2 words
+        if len(useful_tokens) > 2:
+            continue
+        phrase = " ".join(useful_tokens)
+        if _is_noise(phrase) or phrase.isnumeric():
+            continue
+        keywords.add(phrase)
 
-    # 3. Curated tech keyword matching
+    # ── 2. Named entities (skip numeric / date labels, noise) ─────────
+    for ent in doc.ents:
+        if ent.label_ in STOP_LABELS:
+            continue
+        normalised = _normalise(ent.text)
+        if len(normalised) <= 1 or normalised in stop_words or _is_noise(normalised):
+            continue
+        if len(normalised.split()) > 2:
+            continue
+        keywords.add(normalised)
+
+    # ── 3. Individual PROPN / NOUN tokens ─────────────────────────────
+    for tok in doc:
+        if tok.pos_ not in ALLOWED_POS:
+            continue
+        norm = _normalise(tok.text)
+        if len(norm) > 1 and norm not in stop_words and not norm.isnumeric():
+            keywords.add(norm)
+
+    # ── 4. Curated tech keyword matching ──────────────────────────────
     text_lower = text.lower()
     for kw in TECH_KEYWORDS:
         if kw in text_lower:
             keywords.add(kw)
+
+    # Final pass — remove noise phrases and JD stopwords
+    keywords = {
+        k for k in keywords
+        if not _is_noise(k) and k not in JD_STOPWORDS
+    }
 
     return keywords
 
@@ -139,12 +236,63 @@ def compute_semantic_score(cv_text: str, jd_text: str) -> float:
     return max(0.0, min(float(score) * 100, 100.0))
 
 
-def compute_keyword_score(cv_keywords: set[str], jd_keywords: set[str]) -> float:
-    """Compute keyword overlap percentage (0-100)."""
+def _remove_subset_phrases(
+    matched: set[str], missing: set[str],
+) -> set[str]:
+    """
+    Remove n-gram phrases from *missing* when every individual word in
+    the phrase already appears inside *matched*.  This prevents double-
+    penalisation (e.g. "aws cloudformation" missing even though "aws"
+    and "cloudformation" are both matched individually).
+    """
+    # Build a flat set of all individual words present in matched keywords
+    matched_words = set()
+    for kw in matched:
+        matched_words.update(kw.split())
+
+    cleaned_missing: set[str] = set()
+    for phrase in missing:
+        words = phrase.split()
+        if len(words) > 1 and all(w in matched_words for w in words):
+            # All sub-words already matched — not truly missing
+            continue
+        cleaned_missing.add(phrase)
+    return cleaned_missing
+
+
+def compute_keyword_score(
+    cv_keywords: set[str],
+    jd_keywords: set[str],
+    matched_count: int,
+) -> float:
+    """
+    Compute keyword overlap percentage (0-100) with an aggressive curve.
+
+    If the candidate matches > 15 technical keywords the raw ratio is
+    boosted so strong CVs are not anchored down by a large JD denominator.
+    """
     if not jd_keywords:
         return 100.0
-    overlap = cv_keywords & jd_keywords
-    return (len(overlap) / len(jd_keywords)) * 100
+
+    raw_ratio = matched_count / len(jd_keywords)
+    raw_score = raw_ratio * 100
+
+    # Aggressive curve: reward high absolute match counts
+    if matched_count >= 20:
+        # Essentially a perfect keyword match at 20+ matches
+        curved_score = max(raw_score, 95.0)
+    elif matched_count >= 15:
+        # Strong match — boost toward 90-95 range
+        boost = (matched_count - 15) / 5  # 0.0 → 1.0
+        curved_score = raw_score + (95.0 - raw_score) * boost * 0.7
+    elif matched_count >= 10:
+        # Good match — mild boost
+        boost = (matched_count - 10) / 5  # 0.0 → 1.0
+        curved_score = raw_score + (90.0 - raw_score) * boost * 0.3
+    else:
+        curved_score = raw_score
+
+    return min(curved_score, 100.0)
 
 
 # ---------------------------------------------------------------------------
@@ -189,11 +337,36 @@ async def parse_cv(
     matched = cv_keywords & jd_keywords
     missing = jd_keywords - cv_keywords
 
-    keyword_score = compute_keyword_score(cv_keywords, jd_keywords)
-    logger.info("Keyword score: %.2f  (matched=%d, missing=%d)", keyword_score, len(matched), len(missing))
+    # 3b. Subset-matching — remove n-gram phrases whose individual
+    #     words are already present in matched_keywords
+    missing = _remove_subset_phrases(matched, missing)
+    # Re-derive matched count after subset cleaning
+    effective_matched = len(jd_keywords) - len(missing)
 
-    # 4. Combined score (60% semantic + 40% keyword)
-    suitability_score = round((semantic_score * 0.6) + (keyword_score * 0.4), 1)
+    keyword_score = compute_keyword_score(jd_keywords, jd_keywords, effective_matched)
+    logger.info(
+        "Keyword score: %.2f  (matched=%d, missing=%d, jd_total=%d)",
+        keyword_score, effective_matched, len(missing), len(jd_keywords),
+    )
+
+    # 4. Combined score — dynamically adjust weights
+    #    Default: 60% semantic + 40% keyword
+    #    If the JD yields fewer than 5 filterable keywords the keyword
+    #    score becomes unreliable, so we shift weight toward semantic.
+    if len(jd_keywords) < 5:
+        semantic_weight = 0.85
+        keyword_weight = 0.15
+        logger.info(
+            "JD keyword count (%d) < 5 — using semantic-heavy weights (%.0f/%.0f)",
+            len(jd_keywords), semantic_weight * 100, keyword_weight * 100,
+        )
+    else:
+        semantic_weight = 0.60
+        keyword_weight = 0.40
+
+    suitability_score = round(
+        (semantic_score * semantic_weight) + (keyword_score * keyword_weight), 1,
+    )
 
     return ParseCVResponse(
         suitability_score=suitability_score,
