@@ -142,7 +142,7 @@ interface SidebarItem {
 }
 
 interface DashboardLayoutProps {
-  role: 'ADMIN' | 'ORG_ADMIN' | 'RECRUITER' | 'CANDIDATE' | 'INTERVIEWER';
+  role: 'ADMIN' | 'organization' | 'RECRUITER' | 'CANDIDATE' | 'INTERVIEWER';
   children?: React.ReactNode;
 }
 
@@ -163,11 +163,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
     }
 
     if (user.role !== role) {
-      const dashboardPath = user.role === 'ADMIN' ? '/admin'
-        : user.role === 'ORG_ADMIN' ? '/org-admin'
-          : user.role === 'RECRUITER' ? '/recruiter'
-            : user.role === 'INTERVIEWER' ? '/interviewer'
-              : '/candidate';
+      const dashboardPath = user.role === 'ADMIN' ? '/admin/dashboard'
+        : user.role === 'organization' ? '/organization/dashboard'
+          : user.role === 'RECRUITER' ? '/recruiter/dashboard'
+            : user.role === 'INTERVIEWER' ? '/interviewer/dashboard'
+              : '/candidate/dashboard';
       navigate(dashboardPath);
     }
   }, [role, user, navigate]);
@@ -206,14 +206,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   ];
 
   const orgAdminLinks: SidebarItem[] = [
-    { name: 'Dashboard', path: '/org-admin', icon: LayoutDashboard },
-    { name: 'Manage Team', path: '/org-admin', icon: Users },
-    { name: 'Settings', path: '/org-admin/settings', icon: Settings },
+    { name: 'Dashboard', path: '/organization/dashboard', icon: LayoutDashboard },
+    { name: 'Manage Team', path: '/organization/dashboard', icon: Users },
+    { name: 'Settings', path: '/organization/settings', icon: Settings },
   ];
 
   let links = candidateLinks;
   if (role === 'ADMIN') links = adminLinks;
-  else if (role === 'ORG_ADMIN') links = orgAdminLinks;
+  else if (role === 'organization') links = orgAdminLinks;
   else if (role === 'RECRUITER') links = recruiterLinks;
   else if (role === 'INTERVIEWER') links = interviewerLinks;
 
@@ -228,7 +228,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role }) => {
   const pageTitle = currentLink?.name || 'Dashboard';
 
   // Role label & badge
-  const roleLabel = role === 'ORG_ADMIN' ? 'Org Admin' : role.charAt(0) + role.slice(1).toLowerCase();
+  const roleLabel = role === 'organization' ? 'Org Admin' : role.charAt(0) + role.slice(1).toLowerCase();
   const userInitial = (user?.name || user?.email || 'U').charAt(0).toUpperCase();
 
   const sidebarBg = isDark

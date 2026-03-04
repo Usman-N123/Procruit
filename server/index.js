@@ -94,7 +94,7 @@ io.on('connection', (socket) => {
   // Helper: checks if a role string is a host (recruiter or org admin)
   const isHostRole = (role) =>
     role === 'RECRUITER' || role === 'recruiter' ||
-    role === 'ORG_ADMIN' || role === 'org_admin';
+    role === 'organization';
 
   // --- Join Interview Room ---
   // Accepts: plain roomId string OR { roomId, userName, role } object

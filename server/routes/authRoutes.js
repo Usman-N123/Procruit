@@ -18,8 +18,8 @@ router.post('/login', login);
 
 // Protected Routes
 // Only Org Admin can add recruiters
-router.post('/register-recruiter', protect, checkRole('ORG_ADMIN'), addRecruiter);
-router.get('/recruiters', protect, checkRole('ORG_ADMIN'), require('../controllers/authController').getRecruiters);
+router.post('/register-recruiter', protect, checkRole('organization'), addRecruiter);
+router.get('/recruiters', protect, checkRole('organization'), require('../controllers/authController').getRecruiters);
 router.post('/change-password', protect, require('../controllers/authController').changePassword);
 
 module.exports = router;

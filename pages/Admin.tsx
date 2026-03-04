@@ -78,7 +78,7 @@ export const AdminUsers: React.FC = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">User Management</h2>
       <div className="flex gap-2 mb-6">
-        {['', 'CANDIDATE', 'RECRUITER', 'ORG_ADMIN', 'INTERVIEWER'].map(role => (
+        {['', 'CANDIDATE', 'RECRUITER', 'organization', 'INTERVIEWER'].map(role => (
           <Button
             key={role}
             size="sm"

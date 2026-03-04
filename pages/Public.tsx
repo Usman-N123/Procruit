@@ -414,20 +414,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type }) => {
 
       console.log('Auth Success:', data);
 
+      // Graceful fallback for backend that hasn't been restarted yet
+      if (data.role === 'ORG_ADMIN' || data.role === 'org_admin') {
+        data.role = 'organization';
+      }
+
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role);
       localStorage.setItem('user', JSON.stringify(data));
 
-      if (type === 'signup') {
-        if (data.role === 'RECRUITER') navigate('/recruiter/profile');
-        else if (data.role === 'CANDIDATE') navigate('/candidate/profile');
-        else if (data.role === 'INTERVIEWER') navigate('/interviewer/profile');
-        else navigate('/admin');
+      const userRole = data.role;
+      if (userRole === 'ADMIN' || userRole === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (userRole === 'organization') {
+        navigate('/organization/dashboard');
+      } else if (userRole === 'RECRUITER' || userRole === 'recruiter') {
+        navigate('/recruiter/dashboard');
+      } else if (userRole === 'CANDIDATE' || userRole === 'candidate') {
+        navigate('/candidate/dashboard');
+      } else if (userRole === 'INTERVIEWER' || userRole === 'interviewer') {
+        navigate('/interviewer/dashboard');
       } else {
-        if (data.role === 'ADMIN') navigate('/admin');
-        else if (data.role === 'RECRUITER') navigate('/recruiter');
-        else if (data.role === 'INTERVIEWER') navigate('/interviewer');
-        else navigate('/candidate');
+        navigate('/'); // Default fallback
       }
 
     } catch (err: any) {

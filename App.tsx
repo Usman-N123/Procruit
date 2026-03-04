@@ -28,40 +28,44 @@ const App: React.FC = () => {
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminOverview />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="approvals" element={<AdminApprovals />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
+            <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
 
           {/* Org Admin Routes */}
-          <Route path="/org-admin" element={<DashboardLayout role="ORG_ADMIN" />}>
-            <Route index element={<OrgAdminDashboard />} />
+          <Route path="/organization" element={<DashboardLayout role="organization" />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<OrgAdminDashboard />} />
             <Route path="settings" element={<OrgSettings />} />
-            <Route path="*" element={<Navigate to="/org-admin" replace />} />
+            <Route path="*" element={<Navigate to="/organization/dashboard" replace />} />
           </Route>
 
           {/* Recruiter Routes */}
           <Route path="/recruiter" element={<DashboardLayout role="RECRUITER" />}>
-            <Route index element={<RecruiterDashboard />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<RecruiterDashboard />} />
             <Route path="jobs" element={<MyJobs />} />
             <Route path="applicants" element={<Applicants />} />
             <Route path="hire-interviewer" element={<FindInterviewers />} />
             <Route path="schedule" element={<RecruiterInterviews />} />
             <Route path="profile" element={<RecruiterProfile />} />
             <Route path="ranked/:jobId" element={<RankedCandidates />} />
-            <Route path="*" element={<Navigate to="/recruiter" replace />} />
+            <Route path="*" element={<Navigate to="/recruiter/dashboard" replace />} />
           </Route>
 
           {/* Candidate Routes */}
           <Route path="/candidate" element={<DashboardLayout role="CANDIDATE" />}>
-            <Route index element={<CandidateDashboard />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<CandidateDashboard />} />
             <Route path="jobs" element={<CandidateJobs />} />
             <Route path="profile" element={<CandidateProfile />} />
             <Route path="applications" element={<CandidateApplications />} />
             <Route path="interviews" element={<CandidateInterviews />} />
-            <Route path="*" element={<Navigate to="/candidate" replace />} />
+            <Route path="*" element={<Navigate to="/candidate/dashboard" replace />} />
           </Route>
 
           {/* Interviewer Routes */}
