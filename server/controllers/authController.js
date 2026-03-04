@@ -4,9 +4,9 @@ const Profile = require('../models/Profile'); // For future use when profile dat
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Generate JWT
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret123', {
+// Generate JWT — includes name so socket middleware can read it via decoded.name
+const generateToken = (id, role, name) => {
+    return jwt.sign({ id, role, name }, process.env.JWT_SECRET || 'secret123', {
         expiresIn: '30d',
     });
 };
@@ -57,7 +57,7 @@ exports.registerOrg = async (req, res) => {
             email: user.email,
             role: user.role,
             organization: organization,
-            token: generateToken(user._id, user.role),
+            token: generateToken(user._id, user.role, user.name),
         });
     } catch (err) {
         console.error(err);
@@ -177,7 +177,7 @@ exports.registerFreelancer = async (req, res) => {
             email: user.email,
             role: user.role,
             approvalStatus: user.approvalStatus,
-            token: generateToken(user._id, user.role),
+            token: generateToken(user._id, user.role, user.name),
         });
     } catch (err) {
         console.error(err);
@@ -233,7 +233,7 @@ exports.registerCandidate = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
-            token: generateToken(user._id, user.role),
+            token: generateToken(user._id, user.role, user.name),
         });
     } catch (err) {
         console.error(err);
@@ -263,7 +263,7 @@ exports.login = async (req, res) => {
             organization: user.organization,
             profile: user.profile,
             approvalStatus: user.approvalStatus,
-            token: generateToken(user._id, user.role),
+            token: generateToken(user._id, user.role, user.name),
         });
     } catch (err) {
         console.error(err);

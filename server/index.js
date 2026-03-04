@@ -76,7 +76,7 @@ io.use((socket, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     socket.userId = decoded.id;
-    socket.userName = decoded.name || 'Unknown User';
+    socket.userName = socket.handshake.auth?.userName || decoded.name || 'Unknown User';
     socket.userRole = decoded.role || 'CANDIDATE';
     next();
   } catch (err) {
@@ -85,45 +85,169 @@ io.use((socket, next) => {
 });
 
 // Track active rooms
-const activeRooms = new Map(); // roomId -> Set of { socketId, userId, userName }
+const activeRooms = new Map(); // roomId -> Set of { socketId, userId, userName, role }
+const waitingRooms = new Map(); // roomId -> Set of { socketId, userId, userName, role }
 
 io.on('connection', (socket) => {
   console.log(`[Socket.IO] User connected: ${socket.userName} (${socket.userId})`);
 
+  // Helper: checks if a role string is a host (recruiter or org admin)
+  const isHostRole = (role) =>
+    role === 'RECRUITER' || role === 'recruiter' ||
+    role === 'ORG_ADMIN' || role === 'org_admin';
+
   // --- Join Interview Room ---
-  socket.on('join-room', (interviewId) => {
+  // Accepts: plain roomId string OR { roomId, userName, role } object
+  socket.on('join-room', (payload) => {
+    // Support both legacy string and new object payload
+    const interviewId = typeof payload === 'string' ? payload : payload?.roomId;
     if (!interviewId) return;
 
-    socket.join(interviewId);
+    // Allow client to override auth-derived values (useful for richer notifications)
+    if (typeof payload === 'object') {
+      if (payload.userName) socket.userName = payload.userName;
+      if (payload.role) socket.userRole = payload.role;
+    }
+
     socket.currentRoom = interviewId;
 
-    // Track user in room
+    // Initialize room sets
     if (!activeRooms.has(interviewId)) {
       activeRooms.set(interviewId, new Set());
     }
-    activeRooms.get(interviewId).add({
-      socketId: socket.id,
-      userId: socket.userId,
-      userName: socket.userName,
-    });
+    if (!waitingRooms.has(interviewId)) {
+      waitingRooms.set(interviewId, new Set());
+    }
 
-    // Notify other users in the room
-    socket.to(interviewId).emit('user-connected', {
-      socketId: socket.id,
-      userId: socket.userId,
-      userName: socket.userName,
-    });
+    const isRecruiter = isHostRole(socket.userRole);
+    const hostPresent = Array.from(activeRooms.get(interviewId)).some(u => isHostRole(u.role));
 
-    // Send list of existing users to the joining user
-    const roomUsers = [];
-    activeRooms.get(interviewId).forEach((user) => {
-      if (user.socketId !== socket.id) {
-        roomUsers.push(user);
+    if (isRecruiter) {
+      // Host automatically joins the room
+      socket.join(interviewId);
+      activeRooms.get(interviewId).add({
+        socketId: socket.id,
+        userId: socket.userId,
+        userName: socket.userName,
+        role: socket.userRole,
+      });
+
+      // Notify other users already in the room
+      socket.to(interviewId).emit('user-connected', {
+        socketId: socket.id,
+        userId: socket.userId,
+        userName: socket.userName,
+      });
+
+      // Send list of existing active users to the host
+      const roomUsers = [];
+      activeRooms.get(interviewId).forEach((user) => {
+        if (user.socketId !== socket.id) {
+          roomUsers.push(user);
+        }
+      });
+      socket.emit('room-users', roomUsers);
+
+      // Notify host of any waiting candidates
+      const waiting = Array.from(waitingRooms.get(interviewId));
+      waiting.forEach(user => {
+        socket.emit('admission-request', user);
+      });
+
+      console.log(`[Socket.IO] Host ${socket.userName} joined room: ${interviewId}`);
+    } else {
+      // Candidate flow
+      if (!hostPresent) {
+        // Wait for host
+        waitingRooms.get(interviewId).add({
+          socketId: socket.id,
+          userId: socket.userId,
+          userName: socket.userName,
+          role: socket.userRole,
+        });
+        socket.emit('waiting-for-host');
+        console.log(`[Socket.IO] Candidate ${socket.userName} waiting for host in room: ${interviewId}`);
+      } else {
+        // Host is present, candidate requests admission
+        waitingRooms.get(interviewId).add({
+          socketId: socket.id,
+          userId: socket.userId,
+          userName: socket.userName,
+          role: socket.userRole,
+        });
+        socket.emit('waiting-for-host');
+
+        // Let hosts in the room know someone wants to join
+        io.to(interviewId).emit('admission-request', {
+          socketId: socket.id,
+          userId: socket.userId,
+          userName: socket.userName,
+        });
+        console.log(`[Socket.IO] Candidate ${socket.userName} requesting admission to room: ${interviewId}`);
       }
-    });
-    socket.emit('room-users', roomUsers);
+    }
+  });
 
-    console.log(`[Socket.IO] ${socket.userName} joined room: ${interviewId}`);
+  // --- Admit User (Host action) ---
+  socket.on('admit-user', ({ targetSocketId }) => {
+    const interviewId = socket.currentRoom;
+    if (!interviewId || !waitingRooms.has(interviewId)) return;
+
+    const waitingSet = waitingRooms.get(interviewId);
+    let targetUser = null;
+    for (const u of waitingSet) {
+      if (u.socketId === targetSocketId) {
+        targetUser = u;
+        break;
+      }
+    }
+
+    if (targetUser) {
+      waitingSet.delete(targetUser);
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (targetSocket) {
+        targetSocket.join(interviewId);
+        activeRooms.get(interviewId).add(targetUser);
+
+        targetSocket.emit('admitted');
+
+        targetSocket.to(interviewId).emit('user-connected', {
+          socketId: targetUser.socketId,
+          userId: targetUser.userId,
+          userName: targetUser.userName,
+        });
+
+        const roomUsers = [];
+        activeRooms.get(interviewId).forEach((user) => {
+          if (user.socketId !== targetSocketId) {
+            roomUsers.push(user);
+          }
+        });
+        targetSocket.emit('room-users', roomUsers);
+
+        console.log(`[Socket.IO] ${socket.userName} admitted ${targetUser.userName} to room: ${interviewId}`);
+      }
+    }
+  });
+
+  // --- Deny User (Host action) ---
+  socket.on('deny-user', ({ targetSocketId }) => {
+    const interviewId = socket.currentRoom;
+    if (!interviewId || !waitingRooms.has(interviewId)) return;
+
+    const waitingSet = waitingRooms.get(interviewId);
+    for (const u of waitingSet) {
+      if (u.socketId === targetSocketId) {
+        waitingSet.delete(u);
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (targetSocket) {
+          targetSocket.emit('admission-denied');
+        }
+        console.log(`[Socket.IO] ${socket.userName} denied admission for socket: ${targetSocketId}`);
+        break;
+      }
+    }
   });
 
   // --- WebRTC Signaling: Offer ---
@@ -161,12 +285,36 @@ io.on('connection', (socket) => {
     });
   });
 
+  // --- Language-Only Change Sync ---
+  socket.on('language-change', ({ roomId, language }) => {
+    socket.to(roomId).emit('language-change', { language, from: socket.userId });
+  });
+
+  // --- Editor State Request (for reconnect re-sync) ---
+  // One peer asks the room for the current editor state
+  socket.on('request-editor-state', ({ roomId }) => {
+    socket.to(roomId).emit('provide-editor-state', { requesterId: socket.id });
+  });
+
+  // --- Editor State Response (provider sends state back to the requester) ---
+  socket.on('editor-state-response', ({ targetSocketId, code, language }) => {
+    io.to(targetSocketId).emit('editor-state-sync', { code, language });
+  });
+
+  // --- Kick Participant (Recruiter Only) ---
+  socket.on('kick-user', ({ targetSocketId }) => {
+    if (!targetSocketId) return;
+    // Emit directly to the target socket so only that specific user is notified
+    io.to(targetSocketId).emit('kicked-from-room');
+    console.log(`[Socket.IO] ${socket.userName} kicked socket: ${targetSocketId} from room: ${socket.currentRoom}`);
+  });
+
   // --- Disconnect ---
   socket.on('disconnect', () => {
     console.log(`[Socket.IO] User disconnected: ${socket.userName} (${socket.userId})`);
 
     if (socket.currentRoom) {
-      // Remove from tracking
+      // Remove from active tracking
       const roomUsers = activeRooms.get(socket.currentRoom);
       if (roomUsers) {
         roomUsers.forEach((user) => {
@@ -176,6 +324,21 @@ io.on('connection', (socket) => {
         });
         if (roomUsers.size === 0) {
           activeRooms.delete(socket.currentRoom);
+        }
+      }
+
+      // Remove from waiting room if there
+      const wUsers = waitingRooms.get(socket.currentRoom);
+      if (wUsers) {
+        wUsers.forEach((user) => {
+          if (user.socketId === socket.id) {
+            wUsers.delete(user);
+            // Cancel admission request for hosts
+            io.to(socket.currentRoom).emit('admission-canceled', { socketId: socket.id });
+          }
+        });
+        if (wUsers.size === 0) {
+          waitingRooms.delete(socket.currentRoom);
         }
       }
 
