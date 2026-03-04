@@ -8,7 +8,34 @@ const { v4: uuidv4 } = require('uuid');
 
 // AI Service config
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-const AI_TIMEOUT_MS = 10000; // 10 second timeout
+const AI_TIMEOUT_MS = 30000; // 30 second timeout
+
+/**
+ * Helper: Resolve relative resume URLs to absolute URLs
+ */
+const resolveResumeUrl = (resumeUrl, req) => {
+    if (!resumeUrl) return '';
+    if (resumeUrl.startsWith('http://') || resumeUrl.startsWith('https://')) {
+        return resumeUrl;
+    }
+    const protocol = req.protocol || 'http';
+    const host = req.get('host') || 'localhost:5000';
+    const cleanPath = resumeUrl.startsWith('/') ? resumeUrl : `/${resumeUrl}`;
+    return `${protocol}://${host}${cleanPath}`;
+};
+
+/**
+ * Helper: Fetch PDF file from URL and convert to Node.js Buffer
+ */
+const fetchResumeAsBuffer = async (url) => {
+    const fetch = require('node-fetch');
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+};
 
 /**
  * Helper: Save PDF buffer to local uploads directory
@@ -272,5 +299,100 @@ exports.getMyApplications = async (req, res) => {
     } catch (err) {
         console.error('[getMyApplications] Error:', err);
         res.status(500).json({ message: 'Server error fetching applications' });
+    }
+};
+
+// @desc    Retry AI analysis for a specific application
+// @route   POST /api/applications/:applicationId/retry-ai
+// @access  Private (Recruiter)
+exports.retryAiAnalysis = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        // 1. Find application and populate job & candidate
+        const application = await Application.findById(applicationId)
+            .populate('job')
+            .populate({
+                path: 'candidate',
+                select: 'name email resumeUrl',
+            });
+
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // 2. Verify job ownership (only the recruiter who posted it can retry AI)
+        if (application.job.postedBy.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to modify this application' });
+        }
+
+        // 3. Verify it needs a retry (score is null or status is Pending AI)
+        if (application.aiScore !== null && application.status !== 'Pending AI') {
+            return res.status(400).json({ message: 'Application already has an AI score' });
+        }
+
+        // 4. Get the resume URL from the application or candidate
+        const resumeUrl = application.resumeUrl || (application.candidate && application.candidate.resumeUrl);
+        if (!resumeUrl) {
+            return res.status(400).json({ message: 'No resume found for this candidate to analyze' });
+        }
+
+        console.log(`[retryAiAnalysis] Resolved resume URL string: ${resumeUrl}`);
+        console.log(`[retryAiAnalysis] Populated candidate object exists: ${!!application.candidate}`);
+
+        // 5. Fetch the PDF buffer from the URL
+        let pdfBuffer;
+        try {
+            const absoluteUrl = resolveResumeUrl(resumeUrl, req);
+            console.log(`[retryAiAnalysis] Absolute URL for fetch: ${absoluteUrl}`);
+            pdfBuffer = await fetchResumeAsBuffer(absoluteUrl);
+            console.log(`[retryAiAnalysis] Successfully fetched resume buffer of size: ${pdfBuffer.length} bytes`);
+        } catch (fetchErr) {
+            console.error('[retryAiAnalysis] Full error fetching resume PDF:', fetchErr);
+            return res.status(500).json({ message: 'Failed to retrieve the candidate CV for analysis' });
+        }
+
+        // 6. Build Job Description
+        const jobDescriptionText = [
+            application.job.description || '',
+            application.job.requirements || '',
+            (application.job.skills || []).join(', '),
+        ].filter(Boolean).join('\n\n');
+
+        // 7. Call AI Service
+        let originalName = 'resume.pdf';
+        const urlParts = resumeUrl.split('/');
+        if (urlParts.length > 0) {
+            originalName = urlParts[urlParts.length - 1];
+        }
+
+        const aiResult = await callAIService(pdfBuffer, originalName, jobDescriptionText);
+
+        if (!aiResult) {
+            return res.status(500).json({ message: 'AI service request failed or timed out again.' });
+        }
+
+        // 8. Update application with new score
+        application.aiScore = aiResult.suitability_score;
+        application.matchedKeywords = aiResult.matched_keywords || [];
+        application.missingKeywords = aiResult.missing_keywords || [];
+        application.status = 'Applied'; // Clear the pending status
+
+        await application.save();
+
+        // 9. Return the updated application for frontend state updates
+        res.status(200).json({
+            message: 'AI analysis successful',
+            application: {
+                _id: application._id,
+                aiScore: application.aiScore,
+                matchedKeywords: application.matchedKeywords,
+                missingKeywords: application.missingKeywords,
+                status: application.status
+            }
+        });
+    } catch (err) {
+        console.error('[retryAiAnalysis] Error:', err);
+        res.status(500).json({ message: 'Server error while retrying AI analysis' });
     }
 };

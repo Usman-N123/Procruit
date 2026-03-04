@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge } from '../components/UI';
-import { ArrowLeft, Trophy, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Search, Users, Sparkles } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Search, Users, Sparkles, RefreshCw, Loader2 } from 'lucide-react';
 import { apiRequest } from '../utils/api';
 
 interface RankedCandidate {
@@ -61,7 +61,7 @@ const ScoreBar: React.FC<{ score: number }> = ({ score }) => (
     <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden">
         <div
             className={`h-2 rounded-full transition-all duration-700 ease-out ${score >= 80 ? 'bg-emerald-500' :
-                    score >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                score >= 50 ? 'bg-amber-500' : 'bg-red-500'
                 }`}
             style={{ width: `${score}%` }}
         />
@@ -77,6 +77,7 @@ export const RankedCandidates: React.FC = () => {
     const [error, setError] = useState('');
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [retryingScores, setRetryingScores] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (!jobId) return;
@@ -115,6 +116,46 @@ export const RankedCandidates: React.FC = () => {
         : 0;
 
     const excellentCount = candidates.filter(c => c.aiScore !== null && c.aiScore >= 80).length;
+
+    const handleRetryAI = async (applicationId: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // prevent row expansion toggle
+        setRetryingScores(prev => {
+            const newSet = new Set(prev);
+            newSet.add(applicationId);
+            return newSet;
+        });
+
+        try {
+            const formData = new FormData(); // The backend expects the ID in URL, body can be empty.
+            const data = await apiRequest(`/applications/${applicationId}/retry-ai`, 'POST', formData);
+
+            // On success, update the candidates list to trigger re-render of badge, score, skills, etc.
+            setCandidates(prev =>
+                prev.map(c =>
+                    c._id === applicationId
+                        ? { ...c, aiScore: data.application.aiScore, matchedKeywords: data.application.matchedKeywords, missingKeywords: data.application.missingKeywords, status: data.application.status }
+                        : c
+                ).sort((a, b) => {
+                    // Re-sort so new scores show up higher
+                    if (a.aiScore === null && b.aiScore === null) return 0;
+                    if (a.aiScore === null) return 1;
+                    if (b.aiScore === null) return -1;
+                    return b.aiScore - a.aiScore;
+                })
+            );
+
+            alert('AI analysis successful!');
+        } catch (err: any) {
+            console.error(err);
+            alert(`Retry failed: ${err.message}`);
+        } finally {
+            setRetryingScores(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(applicationId);
+                return newSet;
+            });
+        }
+    };
 
     if (loading) {
         return (
@@ -231,8 +272,8 @@ export const RankedCandidates: React.FC = () => {
                                 {/* Rank */}
                                 <div className="col-span-1">
                                     <span className={`text-sm font-bold ${index === 0 ? 'text-amber-400' :
-                                            index === 1 ? 'text-neutral-300' :
-                                                index === 2 ? 'text-amber-700' : 'text-neutral-500'
+                                        index === 1 ? 'text-neutral-300' :
+                                            index === 2 ? 'text-amber-700' : 'text-neutral-500'
                                         }`}>
                                         {index + 1}
                                     </span>
@@ -256,7 +297,7 @@ export const RankedCandidates: React.FC = () => {
                                     {app.aiScore !== null ? (
                                         <div className="space-y-1.5">
                                             <span className={`text-lg font-bold ${app.aiScore >= 80 ? 'text-emerald-400' :
-                                                    app.aiScore >= 50 ? 'text-amber-400' : 'text-red-400'
+                                                app.aiScore >= 50 ? 'text-amber-400' : 'text-red-400'
                                                 }`}>
                                                 {app.aiScore}
                                             </span>
@@ -353,7 +394,27 @@ export const RankedCandidates: React.FC = () => {
                                         <Badge variant={app.status === 'Applied' ? 'info' : app.status === 'Pending AI' ? 'warning' : 'neutral'}>
                                             {app.status}
                                         </Badge>
-                                        {app.resumeUrl && (
+                                        {app.aiScore === null && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="ml-auto"
+                                                onClick={(e) => handleRetryAI(app._id, e)}
+                                                disabled={retryingScores.has(app._id)}
+                                            >
+                                                {retryingScores.has(app._id) ? (
+                                                    <span className="flex items-center gap-2 text-neutral-400">
+                                                        <Loader2 size={14} className="animate-spin" /> Retrying AI...
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-2">
+                                                        <RefreshCw size={14} /> Retry AI Analysis
+                                                    </span>
+                                                )}
+                                            </Button>
+                                        )}
+
+                                        {app.resumeUrl && app.aiScore !== null && (
                                             <a
                                                 href={app.resumeUrl}
                                                 target="_blank"
@@ -362,6 +423,17 @@ export const RankedCandidates: React.FC = () => {
                                                 onClick={e => e.stopPropagation()}
                                             >
                                                 Download CV
+                                            </a>
+                                        )}
+                                        {app.resumeUrl && app.aiScore === null && (
+                                            <a
+                                                href={app.resumeUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-[#7B2CBF] hover:underline ml-3"
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                CV
                                             </a>
                                         )}
                                     </div>

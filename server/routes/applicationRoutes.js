@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { applyWithCV, getRankedCandidates, getMyApplications } = require('../controllers/applicationController');
+const { applyWithCV, getRankedCandidates, getMyApplications, retryAiAnalysis } = require('../controllers/applicationController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Multer in-memory storage for PDF uploads
@@ -16,6 +16,9 @@ const upload = multer({
         }
     },
 });
+
+// POST /api/applications/:applicationId/retry-ai — Recruiter manually retries AI parsing
+router.post('/:applicationId/retry-ai', protect, authorize('RECRUITER'), retryAiAnalysis);
 
 // POST /api/applications/:jobId — Candidate applies with CV upload
 router.post('/:jobId', protect, authorize('CANDIDATE'), applyWithCV);
