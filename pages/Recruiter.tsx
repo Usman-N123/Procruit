@@ -513,7 +513,7 @@ export const FindInterviewers: React.FC = () => {
         fetchInterviewers();
         // Pre-fetch jobs and candidates for the booking modal dropdowns
         apiRequest('/jobs/my-jobs').then(setJobs).catch(console.error);
-        apiRequest('/users/candidates').then(setCandidates).catch(console.error);
+        apiRequest('/interviews/eligible-candidates').then(setCandidates).catch(console.error);
     }, []);
 
     const handleHire = async () => {
