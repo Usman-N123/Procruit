@@ -407,8 +407,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type }) => {
       }
 
       const payload = type === 'login'
-        ? { email: formData.email, password: formData.password }
-        : { ...formData, role };
+        ? { email: formData.email.toLowerCase(), password: formData.password }
+        : { ...formData, email: formData.email.toLowerCase(), role };
 
       const data = await apiRequest(endpoint, 'POST', payload);
 
