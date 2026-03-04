@@ -15,7 +15,8 @@ const generateToken = (id, role) => {
 // @route   POST /api/auth/register-org
 // @access  Public
 exports.registerOrg = async (req, res) => {
-    const { name, email, password, website, description } = req.body;
+    let { name, email, password, website, description } = req.body;
+    email = email?.toLowerCase();
     // Default orgName if not provided (for quick signup)
     const orgName = req.body.orgName || `${name}'s Organization`;
 
@@ -68,7 +69,8 @@ exports.registerOrg = async (req, res) => {
 // @route   POST /api/org/recruiters
 // @access  Private (Admin only)
 exports.addRecruiter = async (req, res) => {
-    const { name, email, password } = req.body;
+    let { name, email, password } = req.body;
+    email = email?.toLowerCase();
 
     try {
         // Ensure requester is an Admin and has an organization
@@ -132,7 +134,8 @@ exports.getRecruiters = async (req, res) => {
 // @route   POST /api/auth/register-freelancer
 // @access  Public
 exports.registerFreelancer = async (req, res) => {
-    const { name, email, password, hourlyRate, yearsOfExperience, availability, headline, bio, skills } = req.body;
+    let { name, email, password, hourlyRate, yearsOfExperience, availability, headline, bio, skills } = req.body;
+    email = email?.toLowerCase();
 
     try {
         let user = await User.findOne({ email });
@@ -186,7 +189,8 @@ exports.registerFreelancer = async (req, res) => {
 // @route   POST /api/auth/register-candidate
 // @access  Public
 exports.registerCandidate = async (req, res) => {
-    const { name, email, password } = req.body;
+    let { name, email, password } = req.body;
+    email = email?.toLowerCase();
 
     try {
         // Input Sanitization & Validation
@@ -241,7 +245,8 @@ exports.registerCandidate = async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    email = email?.toLowerCase();
 
     try {
         const user = await User.findOne({ email }).populate('organization').populate('profile');

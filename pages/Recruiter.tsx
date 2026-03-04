@@ -337,7 +337,20 @@ export const Applicants: React.FC = () => {
     };
 
     const handleSchedule = async () => {
-        if (!selectedApp) return;
+        if (!selectedApp || !scheduleData.date || !scheduleData.time) {
+            alert("Please provide Date and Time.");
+            return;
+        }
+
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const currentTimeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+        if (scheduleData.date < todayStr || (scheduleData.date === todayStr && scheduleData.time < currentTimeStr)) {
+            alert("Please select a valid future date and time.");
+            return;
+        }
+
         try {
             await apiRequest('/interviews/schedule', 'POST', {
                 candidateId: selectedApp.candidate._id,
@@ -381,6 +394,10 @@ export const Applicants: React.FC = () => {
             resume: app.resume || profile.resume || app.candidate.resumeUrl
         };
     };
+
+    const nowLocal = new Date();
+    const minDateLocal = nowLocal.getFullYear() + '-' + String(nowLocal.getMonth() + 1).padStart(2, '0') + '-' + String(nowLocal.getDate()).padStart(2, '0');
+    const minTimeLocal = scheduleData.date === minDateLocal ? String(nowLocal.getHours()).padStart(2, '0') + ':' + String(nowLocal.getMinutes()).padStart(2, '0') : undefined;
 
     return (
         <div className="space-y-6">
@@ -446,8 +463,8 @@ export const Applicants: React.FC = () => {
             <Modal isOpen={isScheduleOpen} onClose={() => setIsScheduleOpen(false)} title="Schedule Interview">
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Date" type="date" value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} />
-                        <Input label="Time" type="time" value={scheduleData.time} onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })} />
+                        <Input label="Date" type="date" min={minDateLocal} value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} />
+                        <Input label="Time" type="time" min={minTimeLocal} value={scheduleData.time} onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })} />
                     </div>
                     <Input label="Meeting Link" placeholder="https://zoom.us/j/..." value={scheduleData.link} onChange={e => setScheduleData({ ...scheduleData, link: e.target.value })} />
                     <div className="flex justify-end gap-3 pt-4">
@@ -521,6 +538,16 @@ export const FindInterviewers: React.FC = () => {
             alert("Please fill in Candidate, Date, and Time.");
             return;
         }
+
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const currentTimeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+        if (bookingData.date < todayStr || (bookingData.date === todayStr && bookingData.time < currentTimeStr)) {
+            alert("Please select a valid future date and time.");
+            return;
+        }
+
         try {
             await apiRequest('/interviews/schedule', 'POST', {
                 candidateId: bookingData.candidateId,
@@ -537,6 +564,10 @@ export const FindInterviewers: React.FC = () => {
             alert('Failed to send booking request');
         }
     };
+
+    const nowLocal = new Date();
+    const minDateLocal = nowLocal.getFullYear() + '-' + String(nowLocal.getMonth() + 1).padStart(2, '0') + '-' + String(nowLocal.getDate()).padStart(2, '0');
+    const minTimeLocal = bookingData.date === minDateLocal ? String(nowLocal.getHours()).padStart(2, '0') + ':' + String(nowLocal.getMinutes()).padStart(2, '0') : undefined;
 
     return (
         <div className="space-y-6">
@@ -631,8 +662,8 @@ export const FindInterviewers: React.FC = () => {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label="Proposed Date" type="date" value={bookingData.date} onChange={e => setBookingData({ ...bookingData, date: e.target.value })} />
-                        <Input label="Proposed Time" type="time" value={bookingData.time} onChange={e => setBookingData({ ...bookingData, time: e.target.value })} />
+                        <Input label="Proposed Date" type="date" min={minDateLocal} value={bookingData.date} onChange={e => setBookingData({ ...bookingData, date: e.target.value })} />
+                        <Input label="Proposed Time" type="time" min={minTimeLocal} value={bookingData.time} onChange={e => setBookingData({ ...bookingData, time: e.target.value })} />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-neutral-400 mb-1.5">Notes / Instructions</label>

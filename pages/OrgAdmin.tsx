@@ -24,7 +24,10 @@ export const OrgAdminDashboard: React.FC = () => {
 
     const handleAddRecruiter = async () => {
         try {
-            await apiRequest('/auth/register-recruiter', 'POST', newRecruiter);
+            await apiRequest('/auth/register-recruiter', 'POST', {
+                ...newRecruiter,
+                email: newRecruiter.email.toLowerCase()
+            });
             alert('Recruiter added successfully');
             setShowAddRecruiter(false);
             setNewRecruiter({ name: '', email: '', password: '' });
