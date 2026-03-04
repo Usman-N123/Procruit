@@ -32,7 +32,7 @@ exports.registerOrg = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role: 'ORG_ADMIN' // Organization Admin
+            role: 'organization' // Organization Admin
         });
 
         await user.save();

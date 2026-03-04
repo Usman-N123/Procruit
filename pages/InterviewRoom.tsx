@@ -196,7 +196,7 @@ const InterviewRoom: React.FC = () => {
     // User info
     const userString = localStorage.getItem('user');
     const user = userString ? JSON.parse(userString) : null;
-    const isRecruiter = user?.role === 'RECRUITER' || user?.role === 'recruiter' || user?.role === 'ORG_ADMIN' || user?.role === 'org_admin';
+    const isRecruiter = user?.role === 'RECRUITER' || user?.role === 'recruiter' || user?.role === 'organization';
 
     // ===========================
     // Fetch Interview Details
@@ -341,7 +341,7 @@ const InterviewRoom: React.FC = () => {
             }
 
             // 2. Connect to Socket.IO
-            const socket = io(window.location.origin, {
+            const socket = io('/', {
                 auth: { token, userName: user?.name },
                 transports: ['websocket', 'polling'],
             });

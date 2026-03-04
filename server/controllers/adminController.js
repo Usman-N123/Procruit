@@ -9,17 +9,18 @@ const Application = require('../models/Application');
 exports.getDashboardStats = async (req, res) => {
     try {
         const totalCandidates = await User.countDocuments({ role: 'CANDIDATE' });
-        const totalRecruiters = await User.countDocuments({ role: { $in: ['RECRUITER', 'ORG_ADMIN'] } });
+        const totalRecruiters = await User.countDocuments({ role: { $in: ['RECRUITER', 'organization'] } });
         const activeJobs = await Job.countDocuments({ status: 'Active' });
         const totalApplications = await Application.countDocuments();
 
-        const pendingFreelancers = await User.countDocuments({ role: 'INTERVIEWER', approvalStatus: 'PENDING' });
+        const totalInterviewers = await User.countDocuments({ role: 'INTERVIEWER' });
+        const pendingInterviewers = await User.countDocuments({ role: 'INTERVIEWER', approvalStatus: 'PENDING' });
 
         const stats = {
-            users: { candidates: totalCandidates, recruiters: totalRecruiters, total: totalCandidates + totalRecruiters },
+            users: { candidates: totalCandidates, recruiters: totalRecruiters, interviewers: totalInterviewers, total: totalCandidates + totalRecruiters + totalInterviewers },
             jobs: { active: activeJobs },
             applications: { total: totalApplications },
-            pendingApprovals: pendingFreelancers
+            pendingApprovals: pendingInterviewers
         };
 
         console.log("Admin fetching stats:", stats);
@@ -72,8 +73,8 @@ exports.deleteUser = async (req, res) => {
             await Profile.findByIdAndDelete(user.profile);
         }
 
-        // 2. If ORG_ADMIN: Delete Organization and its Recruiters
-        if (user.role === 'ORG_ADMIN') {
+        // 2. If organization: Delete Organization and its Recruiters
+        if (user.role === 'organization') {
             const org = await Organization.findOne({ admin: user._id });
             if (org) {
                 // Find all recruiters in this org

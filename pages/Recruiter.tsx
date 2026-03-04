@@ -170,7 +170,6 @@ export const MyJobs: React.FC = () => {
                                 <Button variant="outline" size="sm" onClick={() => window.location.href = `#/recruiter/ranked/${job._id}`}>
                                     <Sparkles className="w-4 h-4 mr-1.5" />AI Rankings
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => window.location.href = `#/recruiter/applicants?jobId=${job._id}`}>View Applicants</Button>
                             </div>
                         </Card>
                     ))}
