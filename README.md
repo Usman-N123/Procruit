@@ -138,3 +138,7 @@ procruit/
 ├── vite.config.ts       Vite configuration (contains proxy settings for API/WS)
 └── package.json         Root scripts (concurrent dev) & frontend deps
 ```
+## Contact Details
+For any help or queries, You can contact us:
+usmannaeem350@gmail.com
+ahmedafzal25@gmail.com
